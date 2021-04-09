@@ -1,0 +1,43 @@
+{
+  "name": "sfarm",
+  "version": "0.1.0",
+  "description": "Stablecoin Farm",
+  "acc1": "0x0000000000000000000000000000000000000000000000000000000000000001,1000000000000000000000",
+  "acc2": "0x0000000000000000000000000000000000000000000000000000000000000002,1000000000000000000000",
+  "acc3": "0x0000000000000000000000000000000000000000000000000000000000000003,1000000000000000000000",
+  "acc4": "0x0000000000000000000000000000000000000000000000000000000000000004,1000000000000000000000",
+  "scripts": {
+    "compile": "truffle compile --all",
+    "deploy": "truffle migrate --reset --network ${NODE_ENV:-local}",
+    "parser": "babel-eslint",
+    "ganache": "fuser -k -n tcp 8545; ganache-cli --account=$npm_package_acc1 --account=$npm_package_acc2 --account=$npm_package_acc3 --account=$npm_package_acc4 --quiet --time 2020-05-17T08:33:15.000Z > /dev/null 2>&1 &",
+    "test": "yarn ganache && truffle test --bail --network ${NODE_ENV:-local}",
+    "//pretest": "eslint --ignore-path .gitignore .",
+    "lint": "eslint ./**.js **.js",
+    "travislint": "eslint --ignore-path .gitignore .",
+    "lint:fix": "eslint . --fix",
+    "lint:sol": "solium -d contracts/"
+  },
+  "author": "ezDeFi",
+  "dependencies": {
+    "@openzeppelin/contracts": "^3.1.0",
+    "truffle": "^5.1.31",
+    "tslint": "^5.11.0",
+    "web3": "1.0.0-beta.36",
+    "yargs": "^16.1.1"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.9",
+    "chai": "^4.2.0",
+    "coinkey": "^3.0.0",
+    "eth-gas-reporter": "^0.2.17",
+    "moment": "^2.27.0",
+    "node-fetch": "^2.6.1",
+    "prompt": "^1.0.0",
+    "request-promise": "^4.2.6"
+  },
+  "private": true,
+  "main": "index.js",
+  "repository": "git@github.com:ezDeFi/sfarm-contracts.git",
+  "license": "MIT"
+}
