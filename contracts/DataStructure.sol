@@ -19,7 +19,7 @@ contract DataStructure {
     IERC20 baseToken;   // any authorized token deposit in here is denominated to this token
 
     mapping(address => bool)    routers;
-    mapping(address => bool)    tokens;
+    mapping(address => address) tokens; // token => LP(token/baseToken)
     mapping(address => bool)    farmers;
 
     /**

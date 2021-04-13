@@ -7,6 +7,7 @@ pragma solidity >=0.6.2;
 // solium-disable security/no-inline-assembly
 
 import "./DataStructure.sol";
+import "./lib/UniswapV2Library.sol";
 
 contract SFarm is DataStructure {
     constructor(IERC20 _baseToken) public {
@@ -17,7 +18,7 @@ contract SFarm is DataStructure {
     function initialize(IERC20 _baseToken) public {
         require(msg.sender == address(this), "!internal");
         baseToken = _baseToken;
-        tokens[address(_baseToken)] = true;
+        tokens[address(_baseToken)] = address(0x1);
     }
 
     function setFarmer(address farmer, bool enable) external {
@@ -30,8 +31,12 @@ contract SFarm is DataStructure {
         routers[address(router)] = enable;
     }
 
-    function setToken(IERC20 token, bool enable) external {
+    function setToken(IERC20 token, address factory, bytes32 initCodeHash) external {
         // @admin
-        tokens[address(token)] = enable;
+        if (factory == address(0x0)) {
+            delete tokens[address(token)];
+        } else {
+            tokens[address(token)] = UniswapV2Library.pairFor(factory, initCodeHash, address(baseToken), address(token));
+        }
     }
 }
