@@ -20,7 +20,7 @@ library CapMath {
             return y / b;
         }
         // overflown
-        return x/b*a;   // overflowable
+        return x/b*a;   // overflowable: only with a > b
     }
 
     /**

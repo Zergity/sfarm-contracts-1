@@ -3,7 +3,7 @@ pragma solidity ^0.6.2;
 /** @title util */
 /** @author Zergity */
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./SafeMath.sol";
 
 library util {
     function abs(int a) internal pure returns (uint) {
