@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.2;
+pragma experimental ABIEncoderV2;
 
 /** @title SFarm */
 /** @author Zergity */
@@ -34,11 +35,47 @@ contract SFarm is DataStructure {
         emit Deposit(msg.sender, token, amount);
     }
 
-    function withdraw(address token, uint amount) external {
+    struct ParamRL {
+        address router;
+        address tokenA;
+        address tokenB;
+        uint liquidity;
+        uint amountAMin;
+        uint amountBMin;
+        address to;
+        uint deadline;
+    }
+
+    function withdraw(
+        address token,
+        uint amount,
+        ParamRL[] calldata paramRL
+    ) external {
         require(tokens[token], "token not support");
+
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
+
+        for (uint i = 0; i < paramRL.length; ++i) {
+            require(paramRL[i].tokenA == token || paramRL[i].tokenB == token, "not your token");
+            IUniswapV2Router01(paramRL[i].router).removeLiquidity(
+                paramRL[i].tokenA,
+                paramRL[i].tokenB,
+                paramRL[i].liquidity,
+                paramRL[i].amountAMin,
+                paramRL[i].amountBMin,
+                paramRL[i].to,
+                paramRL[i].deadline
+            );
+        }
+
         IERC20(token).transfer(msg.sender, amount);
+
+        if (paramRL.length > 0) {
+            // accept 1% over removeLiquidity
+            require(IERC20(token).balanceOf(msg.sender) < amount / 100, "over removeLiquidity");
+        }
+
         emit Withdraw(msg.sender, token, amount);
     }
 
