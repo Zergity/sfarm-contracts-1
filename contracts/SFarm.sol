@@ -17,12 +17,16 @@ contract SFarm is DataStructure {
     using SafeMath for uint64;
 
     constructor(address _baseToken, address _earnToken) public {
-        initialize(_baseToken, _earnToken);
+        _initialize(_baseToken, _earnToken);
     }
 
     /// reserved for proxy contract
     function initialize(address _baseToken, address _earnToken) public {
         require(msg.sender == address(this), "!internal");
+        _initialize(_baseToken, _earnToken);
+    }
+
+    function _initialize(address _baseToken, address _earnToken) internal {
         baseToken = _baseToken;
         earnToken = _earnToken;
     }
