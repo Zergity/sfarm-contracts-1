@@ -9,6 +9,8 @@ const ERC20 = artifacts.require("ERC20PresetMinterPauser");
 const SFarm = artifacts.require("SFarm");
 let inst = {};
 
+const TIME_TOLLERANCE = 2;
+
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 contract("Stake and Earn", accounts => {
@@ -36,11 +38,12 @@ contract("Stake and Earn", accounts => {
       }
     })
 
-    it("stake some coin", async() => {
+    it("overlap", async() => {
+      const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
       await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
 
-      await time.increase(24*60*60);
+      await time.increase(240*60*60);
       await inst.coin[0].mint(accounts[1], decShift(100, 18))
       await inst.farm.deposit(inst.coin[0].address, decShift(87, 18), { from: accounts[1] })
 
@@ -51,6 +54,95 @@ contract("Stake and Earn", accounts => {
       await time.increase(30*60*60);
       await inst.farm.withdraw(inst.coin[0].address, decShift(87, 18), [], { from: accounts[1] })
       expect(await inst.coin[0].balanceOf(accounts[1])).to.be.bignumber.equal(decShift(100, 18), "balance intact")
+      await snapshot.revert(ss);
+    })
+
+    it("stake lock: single", async() => {
+      const ss = await snapshot.take();
+      await inst.coin[0].mint(accounts[0], decShift(60, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
+
+      await time.increase(24*60*60-TIME_TOLLERANCE);
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      await time.increase(TIME_TOLLERANCE);
+      await inst.farm.withdraw(inst.coin[0].address, decShift(13, 18), [])
+      expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(60, 18), "balance intact")
+      await snapshot.revert(ss);
+    })
+
+    it("stake lock: queue", async() => {
+      const ss = await snapshot.take();
+      await inst.coin[0].mint(accounts[0], decShift(100, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(10, 18))
+
+      await time.increase(24*60*60-TIME_TOLLERANCE);
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      await time.increase(TIME_TOLLERANCE);
+      {
+        const ss = await snapshot.take();
+        await inst.farm.withdraw(inst.coin[0].address, decShift(10, 18), [])
+        expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(100, 18))
+        await snapshot.revert(ss);
+      }
+
+      await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
+
+      await time.increase(24*60*60*2/(10+2)-TIME_TOLLERANCE);
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked 2')
+      await time.increase(TIME_TOLLERANCE);
+      {
+        const ss = await snapshot.take();
+        await inst.farm.withdraw(inst.coin[0].address, decShift(12, 18), [])
+        expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(100, 18))
+        await snapshot.revert(ss);
+      }
+
+      await snapshot.revert(ss);
+    })
+
+    it("stake lock: stack", async() => {
+      const ss = await snapshot.take();
+      await inst.coin[0].mint(accounts[0], decShift(100, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(10, 18))
+
+      await time.increase(10*60*60);
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+
+      await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
+
+      await time.increase(14*60*60*10/(10+2) + 24*60*60*2/(10+2) - TIME_TOLLERANCE);
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked 2')
+      await time.increase(TIME_TOLLERANCE);
+      {
+        const ss = await snapshot.take();
+        await inst.farm.withdraw(inst.coin[0].address, decShift(12, 18), [])
+        expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(100, 18))
+        await snapshot.revert(ss);
+      }
+
+      await snapshot.revert(ss);
+    })
+
+    it("stake lock: repeated resurrection", async() => {
+      const ss = await snapshot.take();
+      await inst.coin[0].mint(accounts[0], decShift(100, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(10, 18))
+
+      await time.increase(48*60*60);
+      await inst.farm.withdraw(inst.coin[0].address, decShift(10, 18), [])
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), '!Stake', 'withdraw: !Stake')
+
+      await time.increase(30*24*60*60);
+
+      for (let i = 0; i < 5; ++i) {
+        await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
+        await inst.farm.withdraw(inst.coin[0].address, decShift(2, 18), [])
+      }
+
+      await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+
+      await snapshot.revert(ss);
     })
   })
 })

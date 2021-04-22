@@ -15,6 +15,8 @@ library StakeLib {
     using SafeMath for uint192;
     using SafeMath for uint64;
 
+    uint constant STAKE_LOCK = 1 days;
+
     uint constant MAX_S = 2**192-1;
     uint constant MAX_T = 2**64-1;
 
@@ -22,23 +24,32 @@ library StakeLib {
         return a.t == MAX_T ? a.s : block.timestamp.sub(a.t).mul(a.s);
     }
 
+    // add a stake lock duration prevent griefing attack
     function deposit(Stake memory a, uint stake) internal view returns (Stake memory) {
-        uint av; uint s;
+        uint s; uint t;
         if (a.t == MAX_T) {
-            av = a.s;
+            // av = a.s
             s = stake;
+            t = block.timestamp.sub(a.s/stake).add(STAKE_LOCK);
         } else {
-            av = block.timestamp.sub(a.t).mul(a.s);
             s = a.s.add(stake);
+            if (block.timestamp >= a.t) {
+                uint av = block.timestamp.sub(a.t).mul(a.s);
+                t = block.timestamp.sub(av/s);
+            } else {
+                uint av = a.t.sub(block.timestamp).mul(a.s);
+                t = block.timestamp.add(av/s);
+            }
+            t = t.add(STAKE_LOCK.mul(stake)/s);   // this could shift to a future time, which require the lock before stake can be withdraw again
         }
         require(s <= MAX_S, "StakeLib: addition stake overflow");
-        uint t = block.timestamp.sub(av/s);
         require(t <= MAX_T, "StakeLib: addition time overflow");
         return Stake(uint192(s), uint64(t));
     }
 
     function withdraw(Stake memory a, uint stake) internal view returns (Stake memory) {
         require(a.t < MAX_T, "StakeLib: !Stake");
+        require(block.timestamp >= a.t, "StakeLib: locked");
         uint av = block.timestamp.sub(a.t).mul(a.s);
         uint s = a.s.sub(stake);
         if (s == 0) {
