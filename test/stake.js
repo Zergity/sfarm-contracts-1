@@ -7,6 +7,8 @@ const { decShift } = require('../tools/lib/big');
 
 const ERC20 = artifacts.require("ERC20PresetMinterPauser");
 const SFarm = artifacts.require("SFarm");
+const Factory = artifacts.require("UniswapV2Factory");
+const Router = artifacts.require('UniswapV2Router01');
 let inst = {};
 
 const TIME_TOLLERANCE = 2;
@@ -27,6 +29,12 @@ contract("Stake and Earn", accounts => {
       inst.coin.push(coin)
     }
     await inst.farm.setTokens(inst.coin.map(c => c.address), [])
+  });
+
+  before('should 3rd party contracts be deployed', async () => {
+    inst.weth = await ERC20.new('Wrapped ETH', 'WETH');
+    inst.factory = await Factory.new(accounts[0]);
+    inst.router = await Router.new(inst.factory.address, inst.weth.address)
   });
 
   describe('stake', () => {
