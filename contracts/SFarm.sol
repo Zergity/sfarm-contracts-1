@@ -31,6 +31,29 @@ contract SFarm is DataStructure {
         earnToken = _earnToken;
     }
 
+    function funcSign(bytes memory input) internal pure returns (bytes4 output) {
+        assembly {
+            output := mload(add(input, 32))
+        }
+    }
+
+    function farmExec(address target, bytes calldata input) external payable {
+        // TODO: check _contract and funcSign(input) permission
+        (bool result,) = target.call(input);
+
+        // forward the call result to farmExec result, including revert reason
+        assembly {
+            let size := returndatasize()
+            // Copy the returned data.
+            returndatacopy(0, 0, size)
+
+            switch result
+            // delegatecall returns 0 on error.
+            case 0 { revert(0, size) }
+            default { return(0, size) }
+        }
+    }
+
     function deposit(address token, uint amount) external {
         require(tokens[token], "token not support");
         IERC20(token).transferFrom(msg.sender, address(this), amount);

@@ -82,15 +82,15 @@ contract("Stake and Earn", accounts => {
     }
   });
 
-  describe('stake', () => {
-    it("approve farm to spent", async() => {
-      for (const coin of inst.coin) {
-        for (const from of accounts) {
-          await coin.approve(inst.farm.address, decShift(8, 63), { from })
-        }
+  before('approve farm to spent all coins', async () => {
+    for (const coin of inst.coin) {
+      for (const from of accounts) {
+        await coin.approve(inst.farm.address, LARGE_VALUE, { from })
       }
-    })
+    }
+  });
 
+  describe('stake', () => {
     it("overlap", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
@@ -198,7 +198,28 @@ contract("Stake and Earn", accounts => {
       await snapshot.revert(ss);
     })
   })
+
+  describe('farm', () => {
+    it('swap', async() => {
+      await inst.coin[0].mint(accounts[0], decShift(60, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
+
+      await farmExec(inst.coin[0], 'approve', inst.router.address, LARGE_VALUE)
+
+      await farmExec(
+        inst.router, 'swapExactTokensForTokens',
+          60, 0,
+          [ inst.coin[0].address, inst.coin[1].address ],
+          accounts[0], LARGE_VALUE
+        )
+    })
+  })
 })
+
+async function farmExec(router, func, ...args) {
+  const request = await router[func].request(...args)
+  return inst.farm.farmExec(router.address, request.data)
+}
 
 function parseLogs(receipt, contract) {
   return receipt.parsedLogs = receipt.rawLogs.map(rawLog => {
