@@ -37,20 +37,9 @@ contract SFarm is DataStructure {
         }
     }
 
-    function farmExec(address target, bytes calldata input) external payable {
-        (bool result,) = target.call(input);
-
-        // forward the call result to farmExec result, including revert reason
-        assembly {
-            let size := returndatasize()
-            // Copy the returned data.
-            returndatacopy(0, 0, size)
-
-            switch result
-            // delegatecall returns 0 on error.
-            case 0 { revert(0, size) }
-            default { return(0, size) }
-        }
+    function farmExec(address pool, bytes calldata input) external payable {
+        require(pools[pool], "unauthorized pool");
+        return _exec(pool, input);
     }
 
     function deposit(address token, uint amount) external {
@@ -61,45 +50,44 @@ contract SFarm is DataStructure {
         emit Deposit(msg.sender, token, amount);
     }
 
-    struct ParamRL {
-        address router;
-        address tokenA;
-        address tokenB;
-        uint liquidity;
-        uint amountAMin;
-        uint amountBMin;
-        address to;
-        uint deadline;
+    struct ParamWithdraw {
+        address token;
+        uint    amount;
+        address pool;
+        bytes   input;
     }
 
     function withdraw(
         address token,
-        uint amount,
-        ParamRL[] calldata paramRL
+        uint    amount,
+        ParamWithdraw[] calldata path
     ) external {
-        require(tokens[token], "token not support");
+        for (uint i = 0; i < path.length; ++i) {
+            address pool = path[i].pool;
+            require(pools[pool], "unauthorized pool");
+
+            (address pathToken, uint pathAmount) = (path[i].token, path[i].amount);
+            require(IERC20(pathToken).balanceOf(address(this)) < pathAmount, "balance already sufficient");
+
+            // TODO: check pool.funcSign authorization
+            _exec(pool, path[i].input);
+            require(IERC20(pathToken).balanceOf(address(this)) >= pathAmount, "balance insufficient");
+
+            // accept 1% over removeLiquidity
+            if (i > 0) {
+                require(IERC20(path[i-1].token).balanceOf(address(this)) < path[i-1].amount / 100, "over liquidity withdraw");
+            }
+        }
+        require(tokens[token], "unauthorized token");
 
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
 
-        for (uint i = 0; i < paramRL.length; ++i) {
-            require(paramRL[i].tokenA == token || paramRL[i].tokenB == token, "not your token");
-            IUniswapV2Router01(paramRL[i].router).removeLiquidity(
-                paramRL[i].tokenA,
-                paramRL[i].tokenB,
-                paramRL[i].liquidity,
-                paramRL[i].amountAMin,
-                paramRL[i].amountBMin,
-                paramRL[i].to,
-                paramRL[i].deadline
-            );
-        }
-
         IERC20(token).transfer(msg.sender, amount);
 
-        if (paramRL.length > 0) {
-            // accept 1% over removeLiquidity
-            require(IERC20(token).balanceOf(msg.sender) < amount / 100, "over removeLiquidity");
+        // accept 1% over removeLiquidity
+        if (path.length > 0) {
+            require(IERC20(token).balanceOf(address(this)) < amount / 100, "over liquidity withdraw");
         }
 
         emit Withdraw(msg.sender, token, amount);
@@ -174,6 +162,22 @@ contract SFarm is DataStructure {
             address token = add[i];
             delete tokens[token];
             emit Token(token, false);
+        }
+    }
+
+    function _exec(address pool, bytes memory input) internal {
+        (bool result,) = pool.call(input);
+
+        // forward the call result to farmExec result, including revert reason
+        assembly {
+            let size := returndatasize()
+            // Copy the returned data.
+            returndatacopy(0, 0, size)
+
+            switch result
+            // delegatecall returns 0 on error.
+            case 0 { revert(0, size) }
+            default { return(0, size) }
         }
     }
 }
