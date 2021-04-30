@@ -38,7 +38,6 @@ contract SFarm is DataStructure {
     }
 
     function farmExec(address target, bytes calldata input) external payable {
-        // TODO: check _contract and funcSign(input) permission
         (bool result,) = target.call(input);
 
         // forward the call result to farmExec result, including revert reason
@@ -127,6 +126,15 @@ contract SFarm is DataStructure {
         emit Harvest(msg.sender, earn);
     }
 
+    function approve(address[] calldata tokens, address[] calldata _pools, uint amount) external {
+        for (uint j = 0; j < _pools.length; ++j) {
+            require(pools[_pools[j]], "unauthorized pool");
+            for (uint i = 0; i < tokens.length; ++i) {
+                IERC20(tokens[i]).approve(_pools[j], amount);
+            }
+        }
+    }
+
     function setFarmers(address[] calldata add, address[] calldata remove) external {
         // @admin
         for (uint i; i < add.length; ++i) {
@@ -141,16 +149,16 @@ contract SFarm is DataStructure {
         }
     }
 
-    function setRouters(address[] calldata add, address[] calldata remove) external {
+    function setPools(address[] calldata add, address[] calldata remove) external {
         // @admin
         for (uint i; i < add.length; ++i) {
             address router = add[i];
-            routers[router] = true;
+            pools[router] = true;
             emit Router(router, true);
         }
         for (uint i; i < remove.length; ++i) {
             address router = add[i];
-            delete routers[router];
+            delete pools[router];
             emit Router(router, false);
         }
     }

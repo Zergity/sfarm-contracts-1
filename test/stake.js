@@ -31,6 +31,7 @@ const CONTRACT = new ethers.Contract(ZERO_ADDRESS, ABIs)
 
 let inst = {
   coin: [],
+  router: [],
   pair: {},
 };
 Math.seedrandom('any string you like');
@@ -52,8 +53,8 @@ contract("Stake and Earn", accounts => {
 
   before('should 3rd party contracts be deployed', async () => {
     inst.weth = await ERC20.new('Wrapped ETH', 'WETH');
-    inst.factory = await Factory.new(accounts[0]);
-    inst.router = await Router.new(inst.factory.address, inst.weth.address)
+    const factory = await Factory.new(accounts[0]);
+    inst.router[0] = await Router.new(factory.address, inst.weth.address)
   });
 
   before('init liquidity pools', async () => {
@@ -63,9 +64,9 @@ contract("Stake and Earn", accounts => {
         const amountB = decShift(Math.random(), 24)
         await inst.coin[i].mint(accounts[i], amountA)
         await inst.coin[j].mint(accounts[i], amountB)
-        await inst.coin[i].approve(inst.router.address, LARGE_VALUE, { from: accounts[i] })
-        await inst.coin[j].approve(inst.router.address, LARGE_VALUE, { from: accounts[i] })
-        const r = await inst.router.addLiquidity(
+        await inst.coin[i].approve(inst.router[0].address, LARGE_VALUE, { from: accounts[i] })
+        await inst.coin[j].approve(inst.router[0].address, LARGE_VALUE, { from: accounts[i] })
+        const r = await inst.router[0].addLiquidity(
           inst.coin[i].address, inst.coin[j].address,
           amountA, amountB,
           0, 0,
@@ -88,6 +89,22 @@ contract("Stake and Earn", accounts => {
         await coin.approve(inst.farm.address, LARGE_VALUE, { from })
       }
     }
+  });
+
+  before("approve router to spent all farm's coins", async () => {
+    await expectRevert(inst.farm.approve(
+      inst.coin.map(c => c.address),
+      inst.router.map(r => r.address),
+      LARGE_VALUE,
+    ), 'unauthorized pool')
+
+    await inst.farm.setPools(inst.router.map(r => r.address), [])
+
+    await inst.farm.approve(
+      inst.coin.map(c => c.address),
+      inst.router.map(r => r.address),
+      LARGE_VALUE,
+    )
   });
 
   describe('stake', () => {
@@ -204,10 +221,8 @@ contract("Stake and Earn", accounts => {
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
       await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
 
-      await farmExec(inst.coin[0], 'approve', inst.router.address, LARGE_VALUE)
-
       await farmExec(
-        inst.router, 'swapExactTokensForTokens',
+        inst.router[0], 'swapExactTokensForTokens',
           60, 0,
           [ inst.coin[0].address, inst.coin[1].address ],
           accounts[0], LARGE_VALUE

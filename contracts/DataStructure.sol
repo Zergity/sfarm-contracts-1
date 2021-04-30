@@ -19,7 +19,7 @@ contract DataStructure {
     address earnToken;  // reward token (ZD)
 
     mapping(address => bool)    tokens;
-    mapping(address => bool)    routers;
+    mapping(address => bool)    pools;
     mapping(address => bool)    farmers;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
