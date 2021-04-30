@@ -38,6 +38,7 @@ contract SFarm is DataStructure {
     }
 
     function farmExec(address pool, bytes calldata input) external payable {
+        // TODO: require farmers[msg.sender]
         require(pools[pool], "unauthorized pool");
         return _exec(pool, input);
     }
@@ -50,44 +51,33 @@ contract SFarm is DataStructure {
         emit Deposit(msg.sender, token, amount);
     }
 
-    struct ParamWithdraw {
-        address token;
-        uint    amount;
+    struct paramExec {
         address pool;
         bytes   input;
     }
 
     function withdraw(
-        address token,
-        uint    amount,
-        ParamWithdraw[] calldata path
+        address     token,
+        uint        amount,
+        paramExec[] calldata execs
     ) external {
-        for (uint i = 0; i < path.length; ++i) {
-            address pool = path[i].pool;
-            require(pools[pool], "unauthorized pool");
-
-            (address pathToken, uint pathAmount) = (path[i].token, path[i].amount);
-            require(IERC20(pathToken).balanceOf(address(this)) < pathAmount, "balance already sufficient");
-
-            // TODO: check pool.funcSign authorization
-            _exec(pool, path[i].input);
-            require(IERC20(pathToken).balanceOf(address(this)) >= pathAmount, "balance insufficient");
-
-            // accept 1% over removeLiquidity
-            if (i > 0) {
-                require(IERC20(path[i-1].token).balanceOf(address(this)) < path[i-1].amount / 100, "over liquidity withdraw");
-            }
-        }
         require(tokens[token], "unauthorized token");
-
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
+
+        for (uint i = 0; i < execs.length; ++i) {
+            address pool = execs[i].pool;
+            require(pools[pool], "unauthorized pool");
+
+            // TODO: check pool.funcSign authorization
+            _exec(pool, execs[i].input);
+        }
 
         IERC20(token).transfer(msg.sender, amount);
 
         // accept 1% over removeLiquidity
-        if (path.length > 0) {
-            require(IERC20(token).balanceOf(address(this)) < amount / 100, "over liquidity withdraw");
+        if (execs.length > 0) {
+            require(IERC20(token).balanceOf(address(this)) < amount / 100, "execs: over withdraw");
         }
 
         emit Withdraw(msg.sender, token, amount);
