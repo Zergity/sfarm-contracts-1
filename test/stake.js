@@ -36,7 +36,7 @@ let inst = {
 };
 Math.seedrandom('any string you like');
 
-contract("Stake and Earn", accounts => {
+contract("SFarm", accounts => {
   before('should our contracts be deployed', async () => {
     inst.base = await ERC20.new('Base USD', 'BUSD')
     expect(inst.base, 'contract not deployed: BUSD').to.not.be.null
@@ -48,7 +48,6 @@ contract("Stake and Earn", accounts => {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)
       inst.coin.push(coin)
     }
-    await inst.farm.setTokens(inst.coin.map(c => c.address), [])
   });
 
   before('should 3rd party contracts be deployed', async () => {
@@ -57,7 +56,7 @@ contract("Stake and Earn", accounts => {
     inst.router[0] = await Router.new(factory.address, inst.weth.address)
   });
 
-  before('init liquidity pools', async () => {
+  before("init liquidity pools", async() => {
     for (let i = 0; i < accounts.length-1; ++i) {
       for (let j = i+1; j < accounts.length; ++j) {
         const amountA = decShift(Math.random(), 24)
@@ -81,31 +80,43 @@ contract("Stake and Earn", accounts => {
         inst.pair[token0][token1] = inst.pair[token1][token0] = await Pair.at(pair)
       }
     }
-  });
+  })
 
-  before('approve farm to spent all coins', async () => {
-    for (const coin of inst.coin) {
-      for (const from of accounts) {
-        await coin.approve(inst.farm.address, LARGE_VALUE, { from })
+  describe('setup', () => {
+    it("setTokens", async() => {
+      await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
+      await inst.farm.setTokens(inst.coin.map(c => c.address), [])
+    })
+
+    it("approve farm to spent all coins", async() => {
+      await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'transfer amount exceeds balance')
+      await inst.coin[0].mint(accounts[0], 1)
+      await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'transfer amount exceeds allowance')
+      await inst.coin[0].burn(1, { from: accounts[0] })
+  
+      for (const coin of inst.coin) {
+        for (const from of accounts) {
+          await coin.approve(inst.farm.address, LARGE_VALUE, { from })
+        }
       }
-    }
-  });
+    })
 
-  before("approve router to spent all farm's coins", async () => {
-    await expectRevert(inst.farm.approve(
-      inst.coin.map(c => c.address),
-      inst.router.map(r => r.address),
-      LARGE_VALUE,
-    ), 'unauthorized pool')
-
-    await inst.farm.setPools(inst.router.map(r => r.address), [])
-
-    await inst.farm.approve(
-      inst.coin.map(c => c.address),
-      inst.router.map(r => r.address),
-      LARGE_VALUE,
-    )
-  });
+    it("approve router to spent all farm's coins", async() => {
+      await expectRevert(inst.farm.approve(
+        inst.coin.map(c => c.address),
+        inst.router.map(r => r.address),
+        LARGE_VALUE,
+      ), 'unauthorized pool')
+  
+      await inst.farm.setPools(inst.router.map(r => r.address), [])
+  
+      await inst.farm.approve(
+        inst.coin.map(c => c.address),
+        inst.router.map(r => r.address),
+        LARGE_VALUE,
+      )
+    })
+  })
 
   describe('stake', () => {
     it("overlap", async() => {

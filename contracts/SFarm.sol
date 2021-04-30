@@ -54,7 +54,7 @@ contract SFarm is DataStructure {
     }
 
     function deposit(address token, uint amount) external {
-        require(tokens[token], "token not support");
+        require(tokens[token], "unauthorized token");
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         total = total.deposit(amount);
         stakes[msg.sender] = stakes[msg.sender].deposit(amount);
