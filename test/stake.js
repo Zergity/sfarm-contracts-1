@@ -145,6 +145,20 @@ contract("SFarm", accounts => {
       await snapshot.revert(ss);
     })
 
+    it("stake withdraw: leave 1 wei behind", async() => {
+      const ss = await snapshot.take();
+
+      await inst.coin[0].mint(accounts[0], decShift(60, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(60, 18))
+
+      await time.increase(48*60*60);
+      await expectRevert(
+        inst.farm.withdraw(inst.coin[0].address, new BN(decShift(60, 18)).sub(new BN(1)), []),
+        "ds-math-sub-underflow")
+
+      await snapshot.revert(ss);
+    })
+
     it("stake lock: single", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
