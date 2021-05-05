@@ -44,7 +44,7 @@ contract("SFarm", accounts => {
     expect(inst.earn, 'contract not deployed: ZD').to.not.be.null
     inst.farm = await SFarm.new(inst.base.address, inst.earn.address)
     expect(inst.farm, 'contract not deployed: SFarm').to.not.be.null
-    for (let i = 0; i < 5; ++i) {
+    for (let i = 0; i < accounts.length; ++i) {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)
       inst.coin.push(coin)
     }
@@ -69,15 +69,15 @@ contract("SFarm", accounts => {
           inst.coin[i].address, inst.coin[j].address,
           amountA, amountB,
           0, 0,
-          accounts[i],
+          ZERO_ADDRESS, // discard the LP token
           LARGE_VALUE,
           { from: accounts[i] },
         )
         const parsedLogs = parseLogs(r.receipt)
         const {token0, token1, pair} = parsedLogs.find(log => log.name === 'PairCreated').args
-        if (!inst.pair[token0]) inst.pair[token0] = {}
-        if (!inst.pair[token1]) inst.pair[token1] = {}
-        inst.pair[token0][token1] = inst.pair[token1][token0] = await Pair.at(pair)
+        if (!inst.pair[i]) inst.pair[i] = {}
+        if (!inst.pair[j]) inst.pair[j] = {}
+        inst.pair[i][j] = inst.pair[j][i] = await Pair.at(pair)
       }
     }
   })
@@ -110,8 +110,15 @@ contract("SFarm", accounts => {
   
       await inst.farm.setPools(inst.router.map(r => r.address), [])
   
+      const coins = inst.coin.map(c => c.address)
+      for (let i = 0; i < inst.coin.length-1; ++i) {
+        for (let j = i+1; j < inst.coin.length; ++j) {
+          coins.push(inst.pair[i][j].address)
+        }
+      }
+
       await inst.farm.approve(
-        inst.coin.map(c => c.address),
+        coins,
         inst.router.map(r => r.address),
         LARGE_VALUE,
       )
