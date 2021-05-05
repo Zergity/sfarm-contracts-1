@@ -18,9 +18,9 @@ contract DataStructure {
     address baseToken;  // any authorized token deposit in here is denominated to this token
     address earnToken;  // reward token (ZD)
 
-    mapping(address => bool)    tokens;
-    mapping(address => bool)    pools;
-    mapping(address => bool)    farmers;
+    mapping(address => bool)    authorizedTokens;
+    mapping(address => bool)    authorizedPools;
+    mapping(address => bool)    authorizedFarmers;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
     Stake total;

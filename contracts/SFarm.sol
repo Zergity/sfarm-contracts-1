@@ -37,18 +37,31 @@ contract SFarm is DataStructure {
         }
     }
 
-    function farmExec(address pool, bytes calldata input) external payable {
-        // TODO: require farmers[msg.sender]
-        require(pools[pool], "unauthorized pool");
-        return _exec(pool, input);
+    function farmExec(address token, address pool, bytes calldata input) external {
+        // TODO: require authorizedFarmers[msg.sender]
+        require(authorizedPools[pool], "unauthorized pool");
+        uint balanceBefore = IERC20(token).balanceOf(address(this));
+
+        (bool success,) = pool.call(input);
+
+        if (success) {
+            require(IERC20(token).balanceOf(address(this)) > balanceBefore, "token balance unchanged");
+        }
+
+        return _forwardCallResult(success);
     }
 
     function deposit(address token, uint amount) external {
-        require(tokens[token], "unauthorized token");
+        require(authorizedTokens[token], "unauthorized token");
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         total = total.deposit(amount);
         stakes[msg.sender] = stakes[msg.sender].deposit(amount);
         emit Deposit(msg.sender, token, amount);
+    }
+
+    struct paramRL {
+        address token;
+        paramExec[] execs;
     }
 
     struct paramExec {
@@ -59,25 +72,42 @@ contract SFarm is DataStructure {
     function withdraw(
         address     token,
         uint        amount,
-        paramExec[] calldata execs
+        paramRL[]   calldata rls
     ) external {
-        require(tokens[token], "unauthorized token");
+        require(authorizedTokens[token], "unauthorized token");
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
+        // if (rls.length == 0) revert("hello");
+        
+        uint[] memory lastBalance = new uint[](rls.length);
 
-        for (uint i = 0; i < execs.length; ++i) {
-            address pool = execs[i].pool;
-            require(pools[pool], "unauthorized pool");
+        for (uint i = 0; i < rls.length; ++i) {
+            address lpToken = rls[i].token;
+            uint firstBalance = IERC20(lpToken).balanceOf(address(this));
+            lastBalance[i] = firstBalance;
+            for (uint j = 0; j < rls[i].execs.length; ++j) {
+                address pool = rls[i].execs[i].pool;
+                require(authorizedPools[pool], "unauthorized pool");
 
-            // TODO: check pool.funcSign authorization
-            _exec(pool, execs[i].input);
+                // TODO: check pool.funcSign authorization
+
+                (bool success,) = pool.call(rls[i].execs[j].input);
+                if (!success) {
+                    return _forwardCallResult(success);
+                }
+
+                uint newBalance = IERC20(lpToken).balanceOf(address(this));
+                require(newBalance > lastBalance[i], "token balance unchanged");
+                lastBalance[i] = newBalance;
+            }
         }
 
         IERC20(token).transfer(msg.sender, amount);
 
-        // accept 1% over removeLiquidity
-        if (execs.length > 0) {
-            require(IERC20(token).balanceOf(address(this)) < amount / 100, "execs: over withdraw");
+        // accept 1% token left over
+        for (uint i = 0; i < rls.length; ++i) {
+            address lpToken = rls[i].token;
+            require(IERC20(lpToken).balanceOf(address(this)) <= lastBalance[i] / 100, "too many token leftover");
         }
 
         emit Withdraw(msg.sender, token, amount);
@@ -104,11 +134,11 @@ contract SFarm is DataStructure {
         emit Harvest(msg.sender, earn);
     }
 
-    function approve(address[] calldata tokens, address[] calldata _pools, uint amount) external {
-        for (uint j = 0; j < _pools.length; ++j) {
-            require(pools[_pools[j]], "unauthorized pool");
+    function approve(address[] calldata tokens, address[] calldata pools, uint amount) external {
+        for (uint j = 0; j < pools.length; ++j) {
+            require(authorizedPools[pools[j]], "unauthorized pool");
             for (uint i = 0; i < tokens.length; ++i) {
-                IERC20(tokens[i]).approve(_pools[j], amount);
+                IERC20(tokens[i]).approve(pools[j], amount);
             }
         }
     }
@@ -117,12 +147,12 @@ contract SFarm is DataStructure {
         // @admin
         for (uint i; i < add.length; ++i) {
             address farmer = add[i];
-            farmers[farmer] = true;
+            authorizedFarmers[farmer] = true;
             emit Farmer(farmer, true);
         }
         for (uint i; i < remove.length; ++i) {
             address farmer = add[i];
-            delete farmers[farmer];
+            delete authorizedFarmers[farmer];
             emit Farmer(farmer, false);
         }
     }
@@ -131,12 +161,12 @@ contract SFarm is DataStructure {
         // @admin
         for (uint i; i < add.length; ++i) {
             address router = add[i];
-            pools[router] = true;
+            authorizedPools[router] = true;
             emit Router(router, true);
         }
         for (uint i; i < remove.length; ++i) {
             address router = add[i];
-            delete pools[router];
+            delete authorizedPools[router];
             emit Router(router, false);
         }
     }
@@ -145,26 +175,24 @@ contract SFarm is DataStructure {
         // @admin
         for (uint i; i < add.length; ++i) {
             address token = add[i];
-            tokens[token] = true;
+            authorizedTokens[token] = true;
             emit Token(token, true);
         }
         for (uint i; i < remove.length; ++i) {
             address token = add[i];
-            delete tokens[token];
+            delete authorizedTokens[token];
             emit Token(token, false);
         }
     }
 
-    function _exec(address pool, bytes memory input) internal {
-        (bool result,) = pool.call(input);
-
-        // forward the call result to farmExec result, including revert reason
+    // forward the last call result to the caller, including revert reason
+    function _forwardCallResult(bool success) internal pure {
         assembly {
             let size := returndatasize()
             // Copy the returned data.
             returndatacopy(0, 0, size)
 
-            switch result
+            switch success
             // delegatecall returns 0 on error.
             case 0 { revert(0, size) }
             default { return(0, size) }

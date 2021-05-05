@@ -56,6 +56,7 @@ library StakeLib {
             require(av <= MAX_S, "StakeLib: unclaimed overflown");
             return Stake(uint192(av), uint64(MAX_T));
         }
+        // the following subtract throws when the remain total.s is too small
         uint t = block.timestamp.sub(av/s);
         require(t <= MAX_T, "StakeLib: addition time overflow");
         return Stake(uint192(s), uint64(t));
