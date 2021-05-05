@@ -248,24 +248,212 @@ contract("SFarm", accounts => {
     })
   })
 
-  describe('farm', () => {
-    it('swap', async() => {
+  describe('farmExec', () => {
+    it('deposit', async() => {
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(60, 18))
+    })
 
-      await farmExec(
-        inst.router[0], 'swapExactTokensForTokens',
-          60, 0,
+    it('swap', async() => {
+      await expectRevert(inst.farm.farmExec(
+        inst.coin[1].address,
+        ...await execParams(inst.router[0], 'swapExactTokensForTokens',
+          decShift(30, 18), 0,
           [ inst.coin[0].address, inst.coin[1].address ],
-          accounts[0], LARGE_VALUE
+          accounts[0], LARGE_VALUE,
+        ),
+      ), "token balance unchanged")
+
+      await expectRevert(inst.farm.farmExec(
+        inst.coin[0].address,
+        ...await execParams(inst.router[0], 'swapExactTokensForTokens',
+          decShift(30, 18), 0,
+          [ inst.coin[0].address, inst.coin[1].address ],
+          inst.farm.address, LARGE_VALUE,
+        ),
+      ), "token balance unchanged")
+  
+      await inst.farm.farmExec(
+        inst.coin[1].address,
+        ...await execParams(inst.router[0], 'swapExactTokensForTokens',
+          decShift(30, 18), 0,
+          [ inst.coin[0].address, inst.coin[1].address ],
+          inst.farm.address, LARGE_VALUE,
+        ),
+      )
+    })
+
+    it('addLiquidity and stealing', async() => {
+      const balance0 = await inst.coin[0].balanceOf(inst.farm.address)
+      const balance1 = await inst.coin[1].balanceOf(inst.farm.address)
+
+      await expectRevert(inst.farm.farmExec(
+        inst.pair[0][1].address,
+        ...await execParams(inst.router[0], 'addLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          balance0, balance1,
+          0, 0,
+          accounts[3], LARGE_VALUE,
+        ),
+      ), "token balance unchanged")
+    })
+
+    it('addLiquidity', async() => {
+      const balance0 = await inst.coin[0].balanceOf(inst.farm.address)
+      const balance1 = await inst.coin[1].balanceOf(inst.farm.address)
+
+      await inst.farm.farmExec(
+        inst.pair[0][1].address,
+        ...await execParams(inst.router[0], 'addLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          balance0, balance1,
+          0, 0,
+          inst.farm.address, LARGE_VALUE,
+        ),
+      )
+    })
+
+    it('removeLiquidity and stealing', async() => {
+      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
+      await expectRevert(inst.farm.farmExec(
+        inst.coin[0].address,
+        ...await execParams(inst.router[0], 'removeLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          liquidity,
+          0, 0,
+          accounts[1], LARGE_VALUE,
+        ),
+      ), "token balance unchanged")
+    })
+
+    it('removeLiquidity more than owned', async() => {
+      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
+      await expectRevert(inst.farm.farmExec(
+        inst.coin[0].address,
+        ...await execParams(inst.router[0], 'removeLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          liquidity.add(new BN(1)),
+          0, 0,
+          inst.farm.address, LARGE_VALUE,
+        ),
+      ), "ds-math-sub-underflow")
+    })
+
+    it('removeLiquidity', async() => {
+      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
+      await inst.farm.farmExec(
+        inst.coin[0].address,
+        ...await execParams(inst.router[0], 'removeLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          liquidity,
+          0, 0,
+          inst.farm.address, LARGE_VALUE,
+        ),
+      )
+    })
+
+    // TODO: add pancake farming service
+
+    // stake the LP
+  })
+
+  describe('withdraw', () => {
+    it('single LP with buffer', async() => {
+      const r3 = await inst.coin[3].balanceOf(inst.pair[3][4].address)
+      const r4 = await inst.coin[4].balanceOf(inst.pair[3][4].address)
+      const b3 = r3.div(new BN(10))
+      const b4 = r4.div(new BN(10))
+
+      await inst.coin[3].mint(accounts[3], b3)
+      await inst.farm.deposit(inst.coin[3].address, b3, { from: accounts[3] })
+      await inst.coin[4].mint(accounts[4], b4)
+      await inst.farm.deposit(inst.coin[4].address, b4, { from: accounts[4] })
+
+      await time.increase(48*60*60);
+
+      await inst.farm.farmExec(
+        inst.pair[3][4].address,
+        ...await execParams(inst.router[0], 'addLiquidity',
+          inst.coin[3].address, inst.coin[4].address,
+          b3, b4,
+          0, 0,
+          inst.farm.address, LARGE_VALUE
         )
+      )
+
+      await expectRevert(inst.farm.withdraw(inst.coin[3].address, 1, [], { from: accounts[3] }), "transfer amount exceeds balance")
+
+      // add some coin buffer
+      await inst.coin[3].mint(accounts[0], b3.div(new BN(100)))
+      await inst.farm.deposit(inst.coin[3].address, b3.div(new BN(100)))
+      await inst.coin[4].mint(accounts[0], b4.div(new BN(100)))
+      await inst.farm.deposit(inst.coin[4].address, b4.div(new BN(100)))
+
+      const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
+
+      // single removeLiquidity
+      {
+        const ss = await snapshot.take()
+        await inst.farm.withdraw(inst.coin[3].address, b3, [
+            {
+              token: inst.coin[3].address,
+              execs: [
+                await execParam(inst.router[0], "removeLiquidity",
+                  inst.coin[3].address, inst.coin[4].address,
+                  liquidity,
+                  0, 0,
+                  inst.farm.address, LARGE_VALUE
+                ),
+              ],
+            },
+          ], { from: accounts[3] },
+        )
+
+        await inst.farm.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
+        await snapshot.revert(ss)
+      }
+
+      // double removeLiquidity
+      const firstLiquidity = liquidity.div(new BN(3))
+      const nextLiquidity = liquidity.sub(firstLiquidity)
+
+      await inst.farm.withdraw(inst.coin[3].address, b3, [
+          {
+            token: inst.coin[3].address,
+            execs: [
+              await execParam(inst.router[0], "removeLiquidity",
+                inst.coin[3].address, inst.coin[4].address,
+                firstLiquidity,
+                0, 0,
+                inst.farm.address, LARGE_VALUE
+              ),
+              await execParam(inst.router[0], "removeLiquidity",
+                inst.coin[3].address, inst.coin[4].address,
+                nextLiquidity,
+                0, 0,
+                inst.farm.address, LARGE_VALUE
+              ),
+            ],
+          },
+        ], { from: accounts[3] },
+      )
+
+      await inst.farm.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
     })
   })
 })
 
-async function farmExec(router, func, ...args) {
-  const request = await router[func].request(...args)
-  return inst.farm.farmExec(router.address, request.data)
+async function execParams(pool, func, ...args) {
+  const { data } = await pool[func].request(...args)
+  return [ pool.address, data ]
+}
+
+async function execParam(pool, func, ...args) {
+  const { data } = await pool[func].request(...args)
+  return {
+    pool: pool.address,
+    input: data,
+  }
 }
 
 function parseLogs(receipt, contract) {
