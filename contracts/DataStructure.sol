@@ -21,6 +21,7 @@ contract DataStructure {
     mapping(address => bool)    authorizedTokens;
     mapping(address => bool)    authorizedPools;
     mapping(address => bool)    authorizedFarmers;
+    mapping(address => mapping(bytes4 => bool))     authorizedWithdrawalFunc;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
     Stake total;
@@ -29,6 +30,7 @@ contract DataStructure {
     event Farmer(address indexed farmer, bool enable);
     event Token(address indexed token, bool enable);
     event Router(address indexed router, bool enable);
+    event AuthorizeWithdrawalFunc(address indexed pool, bytes4 indexed func, bool enable);
 
     event Deposit(address indexed sender, address indexed token, uint value);
     event Withdraw(address indexed sender, address indexed token, uint value);

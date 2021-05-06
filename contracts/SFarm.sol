@@ -87,9 +87,7 @@ contract SFarm is DataStructure {
             lastBalance[i] = firstBalance;
             for (uint j = 0; j < rls[i].execs.length; ++j) {
                 address pool = rls[i].execs[i].pool;
-                require(authorizedPools[pool], "unauthorized pool");
-
-                // TODO: check pool.funcSign authorization
+                require(authorizedWithdrawalFunc[pool][funcSign(rls[i].execs[j].input)], "unauthorized withdrawal");
 
                 (bool success,) = pool.call(rls[i].execs[j].input);
                 if (!success) {
@@ -182,6 +180,27 @@ contract SFarm is DataStructure {
             address token = add[i];
             delete authorizedTokens[token];
             emit Token(token, false);
+        }
+    }
+
+    struct paramFunc {
+        address pool;
+        bytes4  func;
+    }
+
+    function authorizeWithdrawalFuncs(paramFunc[] calldata add, paramFunc[] calldata remove) external {
+        // @admin
+        for (uint i; i < add.length; ++i) {
+            address pool = add[i].pool;
+            bytes4  func = add[i].func;
+            authorizedWithdrawalFunc[pool][func] = true;
+            emit AuthorizeWithdrawalFunc(pool, func, true);
+        }
+        for (uint i; i < remove.length; ++i) {
+            address pool = remove[i].pool;
+            bytes4  func = remove[i].func;
+            delete authorizedWithdrawalFunc[pool][func];
+            emit AuthorizeWithdrawalFunc(pool, func, false);
         }
     }
 
