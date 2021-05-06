@@ -16,6 +16,9 @@ contract SFarm is DataStructure {
     using SafeMath for uint192;
     using SafeMath for uint64;
 
+    // accept 1/LEFT_OVER_RATE token left over
+    uint constant LEFT_OVER_RATE = 100;
+
     constructor(address _baseToken, address _earnToken) public {
         _initialize(_baseToken, _earnToken);
     }
@@ -105,7 +108,7 @@ contract SFarm is DataStructure {
         // accept 1% token left over
         for (uint i = 0; i < rls.length; ++i) {
             address lpToken = rls[i].token;
-            require(IERC20(lpToken).balanceOf(address(this)) <= lastBalance[i] / 100, "too many token leftover");
+            require(IERC20(lpToken).balanceOf(address(this)) <= lastBalance[i] / LEFT_OVER_RATE, "too many token leftover");
         }
 
         emit Withdraw(msg.sender, token, amount);
