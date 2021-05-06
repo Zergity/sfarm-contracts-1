@@ -176,11 +176,15 @@ contract SFarm is DataStructure {
         // @admin
         for (uint i; i < add.length; ++i) {
             address token = add[i];
+            require(!authorizedTokens[token], "already authorized");
+            authorizedTokensCount++;
             authorizedTokens[token] = true;
             emit AuthorizeToken(token, true);
         }
         for (uint i; i < remove.length; ++i) {
             address token = add[i];
+            require(authorizedTokens[token], "not authorized");
+            authorizedTokensCount--;
             delete authorizedTokens[token];
             emit AuthorizeToken(token, false);
         }
