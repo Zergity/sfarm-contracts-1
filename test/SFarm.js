@@ -15,10 +15,10 @@ const LARGE_VALUE = '0x800000000000000000000000000000000000000000000000000000000
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const SFarm = artifacts.require('SFarm');
 const Factory = artifacts.require('UniswapV2Factory');
-const Router = artifacts.require('UniswapV2Router01');
+const AuthorizePool = artifacts.require('UniswapV2Router01');
 const Pair = artifacts.require('UniswapV2Pair');
 
-const ABIs = [ ERC20, SFarm, Factory, Router, Pair ]
+const ABIs = [ ERC20, SFarm, Factory, AuthorizePool, Pair ]
   .reduce((abi, a) => abi.concat(a.abi), [])
   .reduce((items, item) => {
     if (!items.some(({name}) => name === item.name)) {
@@ -53,7 +53,7 @@ contract("SFarm", accounts => {
   before('should 3rd party contracts be deployed', async () => {
     inst.weth = await ERC20.new('Wrapped ETH', 'WETH');
     const factory = await Factory.new(accounts[0]);
-    inst.router[0] = await Router.new(factory.address, inst.weth.address)
+    inst.router[0] = await AuthorizePool.new(factory.address, inst.weth.address)
   });
 
   before("init liquidity pools", async() => {
@@ -83,9 +83,9 @@ contract("SFarm", accounts => {
   })
 
   describe('setup', () => {
-    it("setTokens", async() => {
+    it("authorizeTokens", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
-      await inst.farm.setTokens(inst.coin.map(c => c.address), [])
+      await inst.farm.authorizeTokens(inst.coin.map(c => c.address), [])
     })
 
     it("approve farm to spent all coins", async() => {
@@ -108,7 +108,7 @@ contract("SFarm", accounts => {
         LARGE_VALUE,
       ), 'unauthorized pool')
   
-      await inst.farm.setPools(inst.router.map(r => r.address), [])
+      await inst.farm.authorizePools(inst.router.map(r => r.address), [])
   
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {

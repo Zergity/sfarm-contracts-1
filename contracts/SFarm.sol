@@ -141,45 +141,45 @@ contract SFarm is DataStructure {
         }
     }
 
-    function setFarmers(address[] calldata add, address[] calldata remove) external {
+    function authorizeFarmers(address[] calldata add, address[] calldata remove) external {
         // @admin
         for (uint i; i < add.length; ++i) {
             address farmer = add[i];
             authorizedFarmers[farmer] = true;
-            emit Farmer(farmer, true);
+            emit AuthorizeFarmer(farmer, true);
         }
         for (uint i; i < remove.length; ++i) {
             address farmer = add[i];
             delete authorizedFarmers[farmer];
-            emit Farmer(farmer, false);
+            emit AuthorizeFarmer(farmer, false);
         }
     }
 
-    function setPools(address[] calldata add, address[] calldata remove) external {
+    function authorizePools(address[] calldata add, address[] calldata remove) external {
         // @admin
         for (uint i; i < add.length; ++i) {
             address router = add[i];
             authorizedPools[router] = true;
-            emit Router(router, true);
+            emit AuthorizePool(router, true);
         }
         for (uint i; i < remove.length; ++i) {
             address router = add[i];
             delete authorizedPools[router];
-            emit Router(router, false);
+            emit AuthorizePool(router, false);
         }
     }
 
-    function setTokens(address[] calldata add, address[] calldata remove) external {
+    function authorizeTokens(address[] calldata add, address[] calldata remove) external {
         // @admin
         for (uint i; i < add.length; ++i) {
             address token = add[i];
             authorizedTokens[token] = true;
-            emit Token(token, true);
+            emit AuthorizeToken(token, true);
         }
         for (uint i; i < remove.length; ++i) {
             address token = add[i];
             delete authorizedTokens[token];
-            emit Token(token, false);
+            emit AuthorizeToken(token, false);
         }
     }
 

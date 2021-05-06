@@ -18,18 +18,18 @@ contract DataStructure {
     address baseToken;  // any authorized token deposit in here is denominated to this token
     address earnToken;  // reward token (ZD)
 
-    mapping(address => bool)    authorizedTokens;
-    mapping(address => bool)    authorizedPools;
-    mapping(address => bool)    authorizedFarmers;
-    mapping(address => mapping(bytes4 => bool))     authorizedWithdrawalFunc;
+    mapping(address => bool)                    authorizedTokens;
+    mapping(address => bool)                    authorizedPools;
+    mapping(address => bool)                    authorizedFarmers;
+    mapping(address => mapping(bytes4 => bool)) authorizedWithdrawalFunc;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
     Stake total;
     using StakeLib for Stake;
 
-    event Farmer(address indexed farmer, bool enable);
-    event Token(address indexed token, bool enable);
-    event Router(address indexed router, bool enable);
+    event AuthorizeFarmer(address indexed farmer, bool enable);
+    event AuthorizeToken(address indexed token, bool enable);
+    event AuthorizePool(address indexed router, bool enable);
     event AuthorizeWithdrawalFunc(address indexed pool, bytes4 indexed func, bool enable);
 
     event Deposit(address indexed sender, address indexed token, uint value);
