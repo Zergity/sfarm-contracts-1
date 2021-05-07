@@ -18,9 +18,9 @@ contract DataStructure {
     address baseToken;  // any authorized token deposit in here is denominated to this token
     address earnToken;  // reward token (ZD)
 
-    uint authorizedTokensCount;
+    uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
 
-    mapping(address => bool)                    authorizedTokens;
+    mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
     mapping(address => bool)                    authorizedPools;
     mapping(address => bool)                    authorizedFarmers;
     mapping(address => mapping(bytes4 => bool)) authorizedWithdrawalFunc;
@@ -30,13 +30,16 @@ contract DataStructure {
     using StakeLib for Stake;
 
     event AuthorizeFarmer(address indexed farmer, bool enable);
-    event AuthorizeToken(address indexed token, bool enable);
+    event AuthorizeToken(address indexed token, uint level);
     event AuthorizePool(address indexed router, bool enable);
     event AuthorizeWithdrawalFunc(address indexed pool, bytes4 indexed func, bool enable);
 
     event Deposit(address indexed sender, address indexed token, uint value);
     event Withdraw(address indexed sender, address indexed token, uint value);
     event Harvest(address indexed sender, uint value);
+
+    uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
+    uint constant TOKEN_LEVEL_STAKE         = 2;
 
     /**
      * we don't do that here

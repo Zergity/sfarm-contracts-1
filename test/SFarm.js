@@ -12,6 +12,9 @@ const TIME_TOLLERANCE = 2;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const LARGE_VALUE = '0x8000000000000000000000000000000000000000000000000000000000000000'
 
+const TOKEN_LEVEL_RECEIVABLE = '1'.padStart(24, '0')
+const TOKEN_LEVEL_STAKE = '2'.padStart(24, '0')
+
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const SFarm = artifacts.require('SFarm');
 const Factory = artifacts.require('UniswapV2Factory');
@@ -85,7 +88,7 @@ contract("SFarm", accounts => {
   describe('setup', () => {
     it("authorizeTokens", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
-      await inst.farm.authorizeTokens(inst.coin.map(c => c.address), [])
+      await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
     })
 
     it("approve farm to spent all coins", async() => {

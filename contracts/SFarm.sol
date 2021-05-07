@@ -55,7 +55,7 @@ contract SFarm is DataStructure {
     }
 
     function deposit(address token, uint amount) external {
-        require(authorizedTokens[token], "unauthorized token");
+        require(authorizedTokens[token] == TOKEN_LEVEL_STAKE, "unauthorized token");
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         total = total.deposit(amount);
         stakes[msg.sender] = stakes[msg.sender].deposit(amount);
@@ -77,7 +77,7 @@ contract SFarm is DataStructure {
         uint        amount,
         paramRL[]   calldata rls
     ) external {
-        require(authorizedTokens[token], "unauthorized token");
+        require(authorizedTokens[token] == TOKEN_LEVEL_STAKE, "unauthorized token");
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
         // if (rls.length == 0) revert("hello");
@@ -172,21 +172,19 @@ contract SFarm is DataStructure {
         }
     }
 
-    function authorizeTokens(address[] calldata add, address[] calldata remove) external {
+    function authorizeTokens(bytes32[] calldata changes) external {
         // @admin
-        for (uint i; i < add.length; ++i) {
-            address token = add[i];
-            require(!authorizedTokens[token], "already authorized");
-            authorizedTokensCount++;
-            authorizedTokens[token] = true;
-            emit AuthorizeToken(token, true);
+        for (uint i; i < changes.length; ++i) {
+            address token = address(bytes20(changes[i]));
+            uint96  level = uint96(uint(changes[i]));
+            require(authorizedTokens[token] != level, "token authorization level unchanged");
+            if (level == TOKEN_LEVEL_STAKE) {
+                stakeTokensCount++;
+            } else {
+                stakeTokensCount--;
         }
-        for (uint i; i < remove.length; ++i) {
-            address token = add[i];
-            require(authorizedTokens[token], "not authorized");
-            authorizedTokensCount--;
-            delete authorizedTokens[token];
-            emit AuthorizeToken(token, false);
+            authorizedTokens[token] = level;
+            emit AuthorizeToken(token, level);
         }
     }
 
