@@ -40,14 +40,14 @@ contract SFarm is DataStructure {
         }
     }
 
-    function farmExec(address receivingToken, address pool, bytes calldata input) external {
+    function farmExec(address receivingToken, address router, bytes calldata input) external {
         // TODO: require authorizedFarmers[msg.sender]
-        require(authorizedPools[pool], "unauthorized pool");
+        require(authorizedRouters[router] & ROUTER_STAKE_TOKEN > 0, "unauthorized router");
         require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
 
         uint balanceBefore = IERC20(receivingToken).balanceOf(address(this));
 
-        (bool success,) = pool.call(input);
+        (bool success,) = router.call(input);
         if (!success) {
             return _forwardCallResult(success);
         }
@@ -69,7 +69,7 @@ contract SFarm is DataStructure {
     }
 
     struct paramExec {
-        address pool;
+        address router;
         bytes   input;
     }
 
@@ -81,7 +81,7 @@ contract SFarm is DataStructure {
         require(authorizedTokens[token] == TOKEN_LEVEL_STAKE, "unauthorized token");
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
-        
+
         uint[] memory lastBalance = new uint[](rls.length);
 
         for (uint i = 0; i < rls.length; ++i) {
@@ -91,10 +91,10 @@ contract SFarm is DataStructure {
             uint firstBalance = IERC20(receivingToken).balanceOf(address(this));
             lastBalance[i] = firstBalance;
             for (uint j = 0; j < rls[i].execs.length; ++j) {
-                address pool = rls[i].execs[i].pool;
-                require(authorizedWithdrawalFunc[pool][funcSign(rls[i].execs[j].input)], "unauthorized withdrawal");
+                address router = rls[i].execs[i].router;
+                require(authorizedWithdrawalFunc[router][funcSign(rls[i].execs[j].input)], "unauthorized withdrawal");
 
-                (bool success,) = pool.call(rls[i].execs[j].input);
+                (bool success,) = router.call(rls[i].execs[j].input);
                 if (!success) {
                     return _forwardCallResult(success);
                 }
@@ -117,16 +117,16 @@ contract SFarm is DataStructure {
 
     // this function allow farmer to convert token fee earn from LP in the authorizedTokens
     function processOutstandingToken(
-        address             pool,           // LP pool to swap token to earnToken
+        address             router,           // LP router to swap token to earnToken
         bytes     calldata  input,
         address[] calldata  tokens
     ) external {
         require(tokens.length == stakeTokensCount, "incorrect tokens count");
-        require(authorizedEarnTokenPools[pool], "unauthorized earn token pool");
+        require(authorizedRouters[router] & ROUTER_EARN_TOKEN > 0, "unauthorized router");
 
         uint lastBalance = IERC20(earnToken).balanceOf(address(this));
 
-        (bool success,) = pool.call(input);
+        (bool success,) = router.call(input);
         if (!success) {
             return _forwardCallResult(success);
         }
@@ -166,13 +166,12 @@ contract SFarm is DataStructure {
         emit Harvest(msg.sender, earn);
     }
 
-    function approve(address[] calldata tokens, address[] calldata pools, uint amount) external {
-        for (uint j = 0; j < pools.length; ++j) {
-            address pool = pools[j];
-            // TODO: merge 2 pools into 1
-            require(authorizedPools[pool] || authorizedEarnTokenPools[pool], "unauthorized pool");
+    function approve(address[] calldata tokens, address[] calldata routers, uint amount) external {
+        for (uint j = 0; j < routers.length; ++j) {
+            address router = routers[j];
+            require(authorizedRouters[router] > 0, "unauthorized router");
             for (uint i = 0; i < tokens.length; ++i) {
-                IERC20(tokens[i]).approve(pool, amount);
+                IERC20(tokens[i]).approve(router, amount);
             }
         }
     }
@@ -191,17 +190,14 @@ contract SFarm is DataStructure {
         }
     }
 
-    function authorizePools(address[] calldata add, address[] calldata remove) external {
+    function authorizeRouters(bytes32[] calldata changes) external {
         // @admin
-        for (uint i; i < add.length; ++i) {
-            address router = add[i];
-            authorizedPools[router] = true;
-            emit AuthorizePool(router, true);
-        }
-        for (uint i; i < remove.length; ++i) {
-            address router = add[i];
-            delete authorizedPools[router];
-            emit AuthorizePool(router, false);
+        for (uint i; i < changes.length; ++i) {
+            address router = address(bytes20(changes[i]));
+            uint mask = uint(changes[i]) & ROUTER_MASK;
+            require(authorizedRouters[router] != mask, "router authorization mask unchanged");
+            authorizedRouters[router] = mask;
+            emit AuthorizeRouter(router, mask);
         }
     }
 
@@ -216,41 +212,30 @@ contract SFarm is DataStructure {
                 stakeTokensCount++;
             } else if (oldLevel == TOKEN_LEVEL_STAKE) {
                 stakeTokensCount--;
-        }
+            }
             authorizedTokens[token] = level;
             emit AuthorizeToken(token, level);
         }
     }
 
-    function authorizeEarnTokenPools(bytes32[] calldata changes) external {
-        // @admin
-        for (uint i; i < changes.length; ++i) {
-            address pool = address(bytes20(changes[i]));
-            bool  enable = uint96(uint(changes[i])) > 0;
-            require(authorizedEarnTokenPools[pool] != enable, "pool authorization unchanged");
-            authorizedEarnTokenPools[pool] = enable;
-            emit AuthorizedEarnTokenPool(pool, enable);
-        }
-    }
-
     struct paramFunc {
-        address pool;
+        address router;
         bytes4  func;
     }
 
     function authorizeWithdrawalFuncs(paramFunc[] calldata add, paramFunc[] calldata remove) external {
         // @admin
         for (uint i; i < add.length; ++i) {
-            address pool = add[i].pool;
+            address router = add[i].router;
             bytes4  func = add[i].func;
-            authorizedWithdrawalFunc[pool][func] = true;
-            emit AuthorizeWithdrawalFunc(pool, func, true);
+            authorizedWithdrawalFunc[router][func] = true;
+            emit AuthorizeWithdrawalFunc(router, func, true);
         }
         for (uint i; i < remove.length; ++i) {
-            address pool = remove[i].pool;
+            address router = remove[i].router;
             bytes4  func = remove[i].func;
-            delete authorizedWithdrawalFunc[pool][func];
-            emit AuthorizeWithdrawalFunc(pool, func, false);
+            delete authorizedWithdrawalFunc[router][func];
+            emit AuthorizeWithdrawalFunc(router, func, false);
         }
     }
 

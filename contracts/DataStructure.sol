@@ -21,9 +21,8 @@ contract DataStructure {
     uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
 
     mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
-    mapping(address => bool)                    authorizedPools;
+    mapping(address => uint)                    authorizedRouters;  // 1: earn token, 2: staked token
     mapping(address => bool)                    authorizedFarmers;
-    mapping(address => bool)                    authorizedEarnTokenPools;
     mapping(address => mapping(bytes4 => bool)) authorizedWithdrawalFunc;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
@@ -32,8 +31,7 @@ contract DataStructure {
 
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
-    event AuthorizePool(address indexed router, bool enable);
-    event AuthorizedEarnTokenPool(address indexed pool, bool enable);
+    event AuthorizeRouter(address indexed router, uint mask);
     event AuthorizeWithdrawalFunc(address indexed pool, bytes4 indexed func, bool enable);
 
     event Deposit(address indexed sender, address indexed token, uint value);
@@ -42,6 +40,10 @@ contract DataStructure {
 
     uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
     uint constant TOKEN_LEVEL_STAKE         = 2;
+
+    uint constant ROUTER_EARN_TOKEN         = 1 << 0;
+    uint constant ROUTER_STAKE_TOKEN        = 1 << 1;
+    uint constant ROUTER_MASK               = (1 << 2) -1;
 
     /**
      * we don't do that here

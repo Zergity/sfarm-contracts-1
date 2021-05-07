@@ -15,16 +15,17 @@ const LARGE_VALUE = '0x800000000000000000000000000000000000000000000000000000000
 const CONFIG_0 = '0'.repeat(24)
 const CONFIG_1 = '1'.padStart(24, '0')
 const CONFIG_2 = '2'.padStart(24, '0')
+const CONFIG_3 = '3'.padStart(24, '0')
 const TOKEN_LEVEL_RECEIVABLE = CONFIG_1
 const TOKEN_LEVEL_STAKE = CONFIG_2
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const SFarm = artifacts.require('SFarm');
 const Factory = artifacts.require('UniswapV2Factory');
-const AuthorizePool = artifacts.require('UniswapV2Router01');
+const AuthorizeRouter = artifacts.require('UniswapV2Router01');
 const Pair = artifacts.require('UniswapV2Pair');
 
-const ABIs = [ ERC20, SFarm, Factory, AuthorizePool, Pair ]
+const ABIs = [ ERC20, SFarm, Factory, AuthorizeRouter, Pair ]
   .reduce((abi, a) => abi.concat(a.abi), [])
   .reduce((items, item) => {
     if (!items.some(({name}) => name === item.name)) {
@@ -60,10 +61,10 @@ contract("SFarm", accounts => {
   before('should 3rd party contracts be deployed', async () => {
     inst.weth = await ERC20.new('Wrapped ETH', 'WETH');
     const factory = await Factory.new(accounts[0]);
-    inst.router[0] = await AuthorizePool.new(factory.address, inst.weth.address)
+    inst.router[0] = await AuthorizeRouter.new(factory.address, inst.weth.address)
   });
 
-  before("init liquidity pools", async() => {
+  before("init liquidity routers", async() => {
     for (let i = 0; i < inst.coin.length-1; ++i) {
       for (let j = i+1; j < inst.coin.length; ++j) {
         const amountA = decShift(Math.random(), 24)
@@ -88,7 +89,7 @@ contract("SFarm", accounts => {
     }
   })
 
-  before("init liquidity pools to earn token", async() => {
+  before("init liquidity routers to earn token", async() => {
     for (let i = 0; i < inst.coin.length; ++i) {
       const amountA = decShift(Math.random(), 24)
       const amountB = decShift(Math.random(), 24)
@@ -146,9 +147,9 @@ contract("SFarm", accounts => {
         inst.coin.map(c => c.address),
         inst.router.map(r => r.address),
         LARGE_VALUE,
-      ), 'unauthorized pool')
+      ), 'unauthorized router')
   
-      await inst.farm.authorizePools(inst.router.map(r => r.address), [])
+      await inst.farm.authorizeRouters(inst.router.map(r => r.address + CONFIG_2))
   
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
@@ -445,12 +446,12 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity
       await inst.farm.authorizeWithdrawalFuncs([{
-        pool: inst.router[0].address,
+        router: inst.router[0].address,
         func: '0xbaa2abde',
       }], [])
 
       await inst.farm.authorizeWithdrawalFuncs([], [{
-        pool: inst.router[0].address,
+        router: inst.router[0].address,
         func: '0xbaa2abde',
       }])
 
@@ -471,7 +472,7 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity again
       await inst.farm.authorizeWithdrawalFuncs([{
-        pool: inst.router[0].address,
+        router: inst.router[0].address,
         func: '0xbaa2abde',
       }], [])
     })
@@ -558,7 +559,7 @@ contract("SFarm", accounts => {
       }
     })
 
-    it("authorized earn token pool", async() => {
+    it("authorized earn token router", async() => {
       await expectRevert(inst.farm.processOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           1, 0,
@@ -568,8 +569,8 @@ contract("SFarm", accounts => {
         Object.values(inst.coin).map(c => c.address),
       ), "unauthorized")
 
-      // authorize the pool to swap to earn token
-      await inst.farm.authorizeEarnTokenPools([ inst.router[0].address + CONFIG_1 ])
+      // authorize the router to swap to earn token
+      await inst.farm.authorizeRouters([ inst.router[0].address + CONFIG_3 ])
     })
 
     // due to slippages, total balance might be != total stake
@@ -618,15 +619,15 @@ contract("SFarm", accounts => {
   })
 })
 
-async function execParams(pool, func, ...args) {
-  const { data } = await pool[func].request(...args)
-  return [ pool.address, data ]
+async function execParams(router, func, ...args) {
+  const { data } = await router[func].request(...args)
+  return [ router.address, data ]
 }
 
-async function execParam(pool, func, ...args) {
-  const { data } = await pool[func].request(...args)
+async function execParam(router, func, ...args) {
+  const { data } = await router[func].request(...args)
   return {
-    pool: pool.address,
+    router: router.address,
     input: data,
   }
 }
