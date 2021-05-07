@@ -40,18 +40,19 @@ contract SFarm is DataStructure {
         }
     }
 
-    function farmExec(address token, address pool, bytes calldata input) external {
+    function farmExec(address receivingToken, address pool, bytes calldata input) external {
         // TODO: require authorizedFarmers[msg.sender]
         require(authorizedPools[pool], "unauthorized pool");
-        uint balanceBefore = IERC20(token).balanceOf(address(this));
+        require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
+
+        uint balanceBefore = IERC20(receivingToken).balanceOf(address(this));
 
         (bool success,) = pool.call(input);
-
-        if (success) {
-            require(IERC20(token).balanceOf(address(this)) > balanceBefore, "token balance unchanged");
+        if (!success) {
+            return _forwardCallResult(success);
         }
 
-        return _forwardCallResult(success);
+        require(IERC20(receivingToken).balanceOf(address(this)) > balanceBefore, "token balance unchanged");
     }
 
     function deposit(address token, uint amount) external {
@@ -63,7 +64,7 @@ contract SFarm is DataStructure {
     }
 
     struct paramRL {
-        address token;
+        address receivingToken;
         paramExec[] execs;
     }
 
@@ -85,8 +86,10 @@ contract SFarm is DataStructure {
         uint[] memory lastBalance = new uint[](rls.length);
 
         for (uint i = 0; i < rls.length; ++i) {
-            address lpToken = rls[i].token;
-            uint firstBalance = IERC20(lpToken).balanceOf(address(this));
+            address receivingToken = rls[i].receivingToken;
+            require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
+
+            uint firstBalance = IERC20(receivingToken).balanceOf(address(this));
             lastBalance[i] = firstBalance;
             for (uint j = 0; j < rls[i].execs.length; ++j) {
                 address pool = rls[i].execs[i].pool;
@@ -97,7 +100,7 @@ contract SFarm is DataStructure {
                     return _forwardCallResult(success);
                 }
 
-                uint newBalance = IERC20(lpToken).balanceOf(address(this));
+                uint newBalance = IERC20(receivingToken).balanceOf(address(this));
                 require(newBalance > lastBalance[i], "token balance unchanged");
                 lastBalance[i] = newBalance;
             }
@@ -107,8 +110,7 @@ contract SFarm is DataStructure {
 
         // accept 1% token left over
         for (uint i = 0; i < rls.length; ++i) {
-            address lpToken = rls[i].token;
-            require(IERC20(lpToken).balanceOf(address(this)) <= lastBalance[i] / LEFT_OVER_RATE, "too many token leftover");
+            require(IERC20(rls[i].receivingToken).balanceOf(address(this)) <= lastBalance[i] / LEFT_OVER_RATE, "too many token leftover");
         }
 
         emit Withdraw(msg.sender, token, amount);

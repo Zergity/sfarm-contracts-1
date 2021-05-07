@@ -12,8 +12,11 @@ const TIME_TOLLERANCE = 2;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const LARGE_VALUE = '0x8000000000000000000000000000000000000000000000000000000000000000'
 
-const TOKEN_LEVEL_RECEIVABLE = '1'.padStart(24, '0')
-const TOKEN_LEVEL_STAKE = '2'.padStart(24, '0')
+const CONFIG_0 = '0'.repeat(24)
+const CONFIG_1 = '1'.padStart(24, '0')
+const CONFIG_2 = '2'.padStart(24, '0')
+const TOKEN_LEVEL_RECEIVABLE = CONFIG_1
+const TOKEN_LEVEL_STAKE = CONFIG_2
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const SFarm = artifacts.require('SFarm');
@@ -86,9 +89,22 @@ contract("SFarm", accounts => {
   })
 
   describe('setup', () => {
-    it("authorizeTokens", async() => {
+    it("authorize tokens for stake", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
       await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+    })
+
+    it("authorize tokens for receiving", async() => {
+      // TODO: expectRevert
+      const pairs = []
+      for(const i of Object.keys(inst.pair)) {
+        for (const j of Object.keys(inst.pair[i])) {
+          if (i < j) {
+            pairs.push(inst.pair[i][j].address + TOKEN_LEVEL_RECEIVABLE)
+          }
+        }
+      }
+      await inst.farm.authorizeTokens(pairs)
     })
 
     it("approve farm to spent all coins", async() => {
@@ -393,7 +409,7 @@ contract("SFarm", accounts => {
       const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
           {
-            token: inst.coin[3].address,
+            receivingToken: inst.coin[3].address,
             execs: [
               await execParam(inst.router[0], "removeLiquidity",
                 inst.coin[3].address, inst.coin[4].address,
@@ -419,7 +435,7 @@ contract("SFarm", accounts => {
 
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
           {
-            token: inst.coin[3].address,
+            receivingToken: inst.coin[3].address,
             execs: [
               await execParam(inst.router[0], "removeLiquidity",
                 inst.coin[3].address, inst.coin[4].address,
@@ -452,7 +468,7 @@ contract("SFarm", accounts => {
       const ss = await snapshot.take()
       await inst.farm.withdraw(inst.coin[3].address, b3, [
           {
-            token: inst.coin[3].address,
+            receivingToken: inst.coin[3].address,
             execs: [
               await execParam(inst.router[0], "removeLiquidity",
                 inst.coin[3].address, inst.coin[4].address,
@@ -476,7 +492,7 @@ contract("SFarm", accounts => {
 
       await inst.farm.withdraw(inst.coin[3].address, b3, [
           {
-            token: inst.coin[3].address,
+            receivingToken: inst.coin[3].address,
             execs: [
               await execParam(inst.router[0], "removeLiquidity",
                 inst.coin[3].address, inst.coin[4].address,
