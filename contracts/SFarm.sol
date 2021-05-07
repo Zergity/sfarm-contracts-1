@@ -92,7 +92,7 @@ contract SFarm is DataStructure {
             lastBalance[i] = firstBalance;
             for (uint j = 0; j < rls[i].execs.length; ++j) {
                 address router = rls[i].execs[i].router;
-                require(authorizedWithdrawalFunc[router][funcSign(rls[i].execs[j].input)], "unauthorized withdrawal");
+                require(authorizedWithdrawalFunc[router][funcSign(rls[i].execs[j].input)], "unauthorized router.function");
 
                 (bool success,) = router.call(rls[i].execs[j].input);
                 if (!success) {
@@ -218,24 +218,16 @@ contract SFarm is DataStructure {
         }
     }
 
-    struct paramFunc {
-        address router;
-        bytes4  func;
-    }
-
-    function authorizeWithdrawalFuncs(paramFunc[] calldata add, paramFunc[] calldata remove) external {
+    // 20 bytes router address + 4 bytes func signature + 8 bytes bool
+    function authorizeWithdrawalFuncs(bytes32[] calldata changes) external {
         // @admin
-        for (uint i; i < add.length; ++i) {
-            address router = add[i].router;
-            bytes4  func = add[i].func;
-            authorizedWithdrawalFunc[router][func] = true;
-            emit AuthorizeWithdrawalFunc(router, func, true);
-        }
-        for (uint i; i < remove.length; ++i) {
-            address router = remove[i].router;
-            bytes4  func = remove[i].func;
-            delete authorizedWithdrawalFunc[router][func];
-            emit AuthorizeWithdrawalFunc(router, func, false);
+        for (uint i; i < changes.length; ++i) {
+            address router = address(bytes20(changes[i]));
+            bytes4 func = bytes4(bytes12(uint96(uint(changes[i]))));
+            bool enable = uint64(uint(changes[i])) > 0;
+            require(authorizedWithdrawalFunc[router][func] != enable, "authorization unchanged");
+            authorizedWithdrawalFunc[router][func] = enable;
+            emit AuthorizeWithdrawalFunc(router, func, enable);
         }
     }
 

@@ -32,7 +32,7 @@ contract DataStructure {
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
     event AuthorizeRouter(address indexed router, uint mask);
-    event AuthorizeWithdrawalFunc(address indexed pool, bytes4 indexed func, bool enable);
+    event AuthorizeWithdrawalFunc(address indexed router, bytes4 indexed func, bool enable);
 
     event Deposit(address indexed sender, address indexed token, uint value);
     event Withdraw(address indexed sender, address indexed token, uint value);

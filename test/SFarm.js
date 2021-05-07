@@ -427,7 +427,7 @@ contract("SFarm", accounts => {
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, 1, [], { from: accounts[3] }), "transfer amount exceeds balance")
     })
 
-    it("unauthorized withdrawal", async() => {
+    it("unauthorized router.function", async() => {
       const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
           {
@@ -442,18 +442,16 @@ contract("SFarm", accounts => {
             ],
           },
         ], { from: accounts[3] },
-      ), "unauthorized withdrawal")
+      ), "unauthorized router.function")
 
       // authorize inst.router[0].removeLiquidity
-      await inst.farm.authorizeWithdrawalFuncs([{
-        router: inst.router[0].address,
-        func: '0xbaa2abde',
-      }], [])
+      await inst.farm.authorizeWithdrawalFuncs(
+        inst.router.map(r => r.address + 'baa2abde' + '1'+'0'.repeat(15))
+      )
 
-      await inst.farm.authorizeWithdrawalFuncs([], [{
-        router: inst.router[0].address,
-        func: '0xbaa2abde',
-      }])
+      await inst.farm.authorizeWithdrawalFuncs(
+        inst.router.map(r => r.address + 'baa2abde' + '0'.repeat(16))
+      )
 
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
           {
@@ -468,13 +466,12 @@ contract("SFarm", accounts => {
             ],
           },
         ], { from: accounts[3] },
-      ), "unauthorized withdrawal")
+      ), "unauthorized router.function")
 
       // authorize inst.router[0].removeLiquidity again
-      await inst.farm.authorizeWithdrawalFuncs([{
-        router: inst.router[0].address,
-        func: '0xbaa2abde',
-      }], [])
+      await inst.farm.authorizeWithdrawalFuncs(
+        inst.router.map(r => r.address + 'baa2abde' + '1'+'0'.repeat(15))
+      )
     })
 
     it("add some coin buffer", async() => {
