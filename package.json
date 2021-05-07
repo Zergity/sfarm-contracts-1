@@ -13,6 +13,7 @@
     "parser": "babel-eslint",
     "ganache": "fuser -k -n tcp 8545; ganache-cli --account=$npm_package_acc1 --account=$npm_package_acc2 --account=$npm_package_acc3 --account=$npm_package_acc4 --account=$npm_package_acc5 --quiet > /dev/null 2>&1 &",
     "test": "cp test/contracts/*.json build/contracts/ && yarn ganache && truffle test --bail --network ${NODE_ENV:-local}",
+    "test:debug": "yarn test --show-events",
     "//pretest": "eslint --ignore-path .gitignore .",
     "lint": "eslint ./**.js **.js",
     "travislint": "eslint --ignore-path .gitignore .",
