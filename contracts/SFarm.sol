@@ -81,7 +81,6 @@ contract SFarm is DataStructure {
         require(authorizedTokens[token] == TOKEN_LEVEL_STAKE, "unauthorized token");
         stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
         total = total.withdraw(amount);
-        // if (rls.length == 0) revert("hello");
         
         uint[] memory lastBalance = new uint[](rls.length);
 
