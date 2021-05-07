@@ -1,17 +1,5 @@
 const _ = require('lodash');
 
-if (!String.prototype.pad) {
-  Object.defineProperty(String.prototype, 'pad', {
-    enumerable: false,
-    value: function (n) {
-      if (this.length >= n) {
-        return this;
-      }
-      return '0'.repeat(n - this.length) + this;
-    },
-  });
-}
-
 if (!String.prototype.reverseHex) {
   Object.defineProperty(String.prototype, 'reverseHex', {
     enumerable: false,
