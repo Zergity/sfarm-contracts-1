@@ -39,6 +39,7 @@ let inst = {
   coin: [],
   router: [],
   pair: {},
+  earnPair: {},
 };
 Math.seedrandom('any string you like');
 
@@ -63,21 +64,20 @@ contract("SFarm", accounts => {
   });
 
   before("init liquidity pools", async() => {
-    for (let i = 0; i < accounts.length-1; ++i) {
-      for (let j = i+1; j < accounts.length; ++j) {
+    for (let i = 0; i < inst.coin.length-1; ++i) {
+      for (let j = i+1; j < inst.coin.length; ++j) {
         const amountA = decShift(Math.random(), 24)
         const amountB = decShift(Math.random(), 24)
-        await inst.coin[i].mint(accounts[i], amountA)
-        await inst.coin[j].mint(accounts[i], amountB)
-        await inst.coin[i].approve(inst.router[0].address, LARGE_VALUE, { from: accounts[i] })
-        await inst.coin[j].approve(inst.router[0].address, LARGE_VALUE, { from: accounts[i] })
+        await inst.coin[i].mint(accounts[0], amountA)
+        await inst.coin[j].mint(accounts[0], amountB)
+        await inst.coin[i].approve(inst.router[0].address, LARGE_VALUE)
+        await inst.coin[j].approve(inst.router[0].address, LARGE_VALUE)
         const r = await inst.router[0].addLiquidity(
           inst.coin[i].address, inst.coin[j].address,
           amountA, amountB,
           0, 0,
           ZERO_ADDRESS, // discard the LP token
           LARGE_VALUE,
-          { from: accounts[i] },
         )
         const parsedLogs = parseLogs(r.receipt)
         const {token0, token1, pair} = parsedLogs.find(log => log.name === 'PairCreated').args
@@ -85,6 +85,27 @@ contract("SFarm", accounts => {
         if (!inst.pair[j]) inst.pair[j] = {}
         inst.pair[i][j] = inst.pair[j][i] = await Pair.at(pair)
       }
+    }
+  })
+
+  before("init liquidity pools to earn token", async() => {
+    for (let i = 0; i < inst.coin.length; ++i) {
+      const amountA = decShift(Math.random(), 24)
+      const amountB = decShift(Math.random(), 24)
+      await inst.coin[i].mint(accounts[0], amountA)
+      await inst.earn.mint(accounts[0], amountB)
+      await inst.coin[i].approve(inst.router[0].address, LARGE_VALUE)
+      await inst.earn.approve(inst.router[0].address, LARGE_VALUE)
+      const r = await inst.router[0].addLiquidity(
+        inst.coin[i].address, inst.earn.address,
+        amountA, amountB,
+        0, 0,
+        ZERO_ADDRESS, // discard the LP token
+        LARGE_VALUE,
+      )
+      const parsedLogs = parseLogs(r.receipt)
+      const {token0, token1, pair} = parsedLogs.find(log => log.name === 'PairCreated').args
+      inst.earnPair[i] = await Pair.at(pair)
     }
   })
 
@@ -513,6 +534,87 @@ contract("SFarm", accounts => {
 
       await inst.farm.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
     })
+  })
+
+  describe("outstanding token", () => {
+    it("remove all liquidity", async() => {
+      const N = Object.keys(inst.coin).length
+      for (let i = 0; i < N-1; ++i) {
+        for (let j = 1; j < i; ++j) {
+          const liquidity = await inst.pair[i][j].balanceOf(inst.farm.address)
+          if (liquidity.isZero()) {
+            continue
+          }
+          await inst.farm.farmExec(
+            inst.coin[i].address,
+            ...await execParams(inst.router[0], "removeLiquidity",
+              inst.coin[i].address, inst.coin[j].address,
+              liquidity,
+              0, 0,
+              inst.farm.address, LARGE_VALUE,
+            ),
+          )
+        }
+      }
+    })
+
+    it("authorized earn token pool", async() => {
+      await expectRevert(inst.farm.processOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          1, 0,
+          [inst.coin[0].address, inst.earn.address ],
+          inst.farm.address, LARGE_VALUE,
+        ),
+        Object.values(inst.coin).map(c => c.address),
+      ), "unauthorized")
+
+      // authorize the pool to swap to earn token
+      await inst.farm.authorizeEarnTokenPools([ inst.router[0].address + CONFIG_1 ])
+    })
+
+    // due to slippages, total balance might be != total stake
+    // it("re-balance the stake", async() => {
+    // })
+
+    it("outstanding token: over processed", async() => {
+      // due to slippages, total balance might be != total stake
+
+      await expectRevert(inst.farm.processOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          1000, 0,
+          [inst.coin[3].address, inst.earn.address ],
+          inst.farm.address, LARGE_VALUE,
+        ),
+        Object.values(inst.coin).map(c => c.address),
+      ), "over proccessed")
+    })
+
+    it("mint some more token for buffer", async() => {
+      await inst.coin[3].mint(inst.farm.address, decShift(1, 22));
+})
+
+    it("stealing outstanding token", async() => {
+      await expectRevert(inst.farm.processOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          decShift(1, 18), 0,
+          [inst.coin[3].address, inst.earn.address ],
+          accounts[0], LARGE_VALUE,
+        ),
+        Object.values(inst.coin).map(c => c.address),
+      ), "earn token balance unchanged")
+    })
+
+    it("outstanding token", async() => {
+      await inst.farm.processOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          decShift(1, 18), 0,
+          [inst.coin[3].address, inst.earn.address ],
+          inst.farm.address, LARGE_VALUE,
+        ),
+        Object.values(inst.coin).map(c => c.address),
+      )
+    })
+
   })
 })
 

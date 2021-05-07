@@ -115,6 +115,36 @@ contract SFarm is DataStructure {
         emit Withdraw(msg.sender, token, amount);
     }
 
+    // this function allow farmer to convert token fee earn from LP in the authorizedTokens
+    function processOutstandingToken(
+        address             pool,           // LP pool to swap token to earnToken
+        bytes     calldata  input,
+        address[] calldata  tokens
+    ) external {
+        require(tokens.length == stakeTokensCount, "incorrect tokens count");
+        require(authorizedEarnTokenPools[pool], "unauthorized earn token pool");
+
+        uint lastBalance = IERC20(earnToken).balanceOf(address(this));
+
+        (bool success,) = pool.call(input);
+        if (!success) {
+            return _forwardCallResult(success);
+        }
+
+        require(IERC20(earnToken).balanceOf(address(this)) > lastBalance, "earn token balance unchanged");
+
+        // verify the remaining stake is sufficient
+        uint totalBalance;
+        for (uint i; i < tokens.length; ++i) {
+            address token = tokens[i];
+            for (uint j; j < i; ++j) {
+                require(token != tokens[j], "duplicate tokens");
+            }
+            totalBalance = totalBalance.add(IERC20(token).balanceOf(address(this)));
+        }
+        require(total.stake() <= totalBalance, "over proccessed");
+    }
+
     // harvest ZD
     function harvest(uint scale) external returns (uint earn) {
         Stake memory stake = stakes[msg.sender];
@@ -138,9 +168,11 @@ contract SFarm is DataStructure {
 
     function approve(address[] calldata tokens, address[] calldata pools, uint amount) external {
         for (uint j = 0; j < pools.length; ++j) {
-            require(authorizedPools[pools[j]], "unauthorized pool");
+            address pool = pools[j];
+            // TODO: merge 2 pools into 1
+            require(authorizedPools[pool] || authorizedEarnTokenPools[pool], "unauthorized pool");
             for (uint i = 0; i < tokens.length; ++i) {
-                IERC20(tokens[i]).approve(pools[j], amount);
+                IERC20(tokens[i]).approve(pool, amount);
             }
         }
     }
@@ -178,14 +210,26 @@ contract SFarm is DataStructure {
         for (uint i; i < changes.length; ++i) {
             address token = address(bytes20(changes[i]));
             uint96  level = uint96(uint(changes[i]));
-            require(authorizedTokens[token] != level, "token authorization level unchanged");
+            uint oldLevel = authorizedTokens[token];
+            require(oldLevel != level, "token authorization level unchanged");
             if (level == TOKEN_LEVEL_STAKE) {
                 stakeTokensCount++;
-            } else {
+            } else if (oldLevel == TOKEN_LEVEL_STAKE) {
                 stakeTokensCount--;
         }
             authorizedTokens[token] = level;
             emit AuthorizeToken(token, level);
+        }
+    }
+
+    function authorizeEarnTokenPools(bytes32[] calldata changes) external {
+        // @admin
+        for (uint i; i < changes.length; ++i) {
+            address pool = address(bytes20(changes[i]));
+            bool  enable = uint96(uint(changes[i])) > 0;
+            require(authorizedEarnTokenPools[pool] != enable, "pool authorization unchanged");
+            authorizedEarnTokenPools[pool] = enable;
+            emit AuthorizedEarnTokenPool(pool, enable);
         }
     }
 
