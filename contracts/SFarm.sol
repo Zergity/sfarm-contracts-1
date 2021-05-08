@@ -42,9 +42,17 @@ contract SFarm is DataStructure {
 
     function farmExec(address receivingToken, address router, bytes calldata input) external {
         // TODO: require authorizedFarmers[msg.sender]
-        require(authorizedRouters[router] & ROUTER_STAKE_TOKEN > 0, "unauthorized router");
-        require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
+        uint mask = authorizedRouters[router];
+        require(mask & ROUTER_STAKE_TOKEN > 0, "unauthorized router");
 
+        // skip the balance check for router that always use msg.sender instead of `recipient` field (unlike Uniswap)
+        if (receivingToken == address(0x0)) {
+            require(mask & ROUTER_OWNERSHIP_PRESERVED > 0, "router not authorized as ownership preserved");
+            (bool success,) = router.call(input);
+            return _forwardCallResult(success);
+        }
+
+        require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
         uint balanceBefore = IERC20(receivingToken).balanceOf(address(this));
 
         (bool success,) = router.call(input);
@@ -86,22 +94,31 @@ contract SFarm is DataStructure {
 
         for (uint i = 0; i < rls.length; ++i) {
             address receivingToken = rls[i].receivingToken;
-            require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
 
-            uint firstBalance = IERC20(receivingToken).balanceOf(address(this));
-            lastBalance[i] = firstBalance;
+            if (receivingToken != address(0x0)) {
+                require(authorizedTokens[receivingToken] >= TOKEN_LEVEL_RECEIVABLE, "unauthorized receiving token");
+                lastBalance[i] = IERC20(receivingToken).balanceOf(address(this));
+            }
+
             for (uint j = 0; j < rls[i].execs.length; ++j) {
                 address router = rls[i].execs[i].router;
-                require(authorizedWithdrawalFunc[router][funcSign(rls[i].execs[j].input)], "unauthorized router.function");
+
+                uint mask = authorizedWithdrawalFunc[router][funcSign(rls[i].execs[j].input)];
+                require(mask & ROUTER_STAKE_TOKEN > 0, "unauthorized router.function");
+                if (receivingToken == address(0x0)) {
+                    require(mask & ROUTER_OWNERSHIP_PRESERVED > 0, "router not authorized as ownership preserved");
+                }
 
                 (bool success,) = router.call(rls[i].execs[j].input);
                 if (!success) {
                     return _forwardCallResult(success);
                 }
 
-                uint newBalance = IERC20(receivingToken).balanceOf(address(this));
-                require(newBalance > lastBalance[i], "token balance unchanged");
-                lastBalance[i] = newBalance;
+                if (receivingToken != address(0x0)) {
+                    uint newBalance = IERC20(receivingToken).balanceOf(address(this));
+                    require(newBalance > lastBalance[i], "token balance unchanged");
+                    lastBalance[i] = newBalance;
+                }
             }
         }
 
@@ -109,7 +126,10 @@ contract SFarm is DataStructure {
 
         // accept 1% token left over
         for (uint i = 0; i < rls.length; ++i) {
-            require(IERC20(rls[i].receivingToken).balanceOf(address(this)) <= lastBalance[i] / LEFT_OVER_RATE, "too many token leftover");
+            address receivingToken = rls[i].receivingToken;
+            if (receivingToken != address(0x0)) {
+                require(IERC20(receivingToken).balanceOf(address(this)) <= lastBalance[i] / LEFT_OVER_RATE, "too many token leftover");
+            }
         }
 
         emit Withdraw(msg.sender, token, amount);
@@ -195,7 +215,7 @@ contract SFarm is DataStructure {
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
             uint mask = uint(changes[i]) & ROUTER_MASK;
-            require(authorizedRouters[router] != mask, "router authorization mask unchanged");
+            require(authorizedRouters[router] != mask, "authorization mask unchanged");
             authorizedRouters[router] = mask;
             emit AuthorizeRouter(router, mask);
         }
@@ -207,7 +227,7 @@ contract SFarm is DataStructure {
             address token = address(bytes20(changes[i]));
             uint96  level = uint96(uint(changes[i]));
             uint oldLevel = authorizedTokens[token];
-            require(oldLevel != level, "token authorization level unchanged");
+            require(oldLevel != level, "authorization level unchanged");
             if (level == TOKEN_LEVEL_STAKE) {
                 stakeTokensCount++;
             } else if (oldLevel == TOKEN_LEVEL_STAKE) {
@@ -224,10 +244,10 @@ contract SFarm is DataStructure {
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
             bytes4 func = bytes4(bytes12(uint96(uint(changes[i]))));
-            bool enable = uint64(uint(changes[i])) > 0;
-            require(authorizedWithdrawalFunc[router][func] != enable, "authorization unchanged");
-            authorizedWithdrawalFunc[router][func] = enable;
-            emit AuthorizeWithdrawalFunc(router, func, enable);
+            uint mask = uint64(uint(changes[i]));
+            require(authorizedWithdrawalFunc[router][func] != mask, "authorization mask unchanged");
+            authorizedWithdrawalFunc[router][func] = mask;
+            emit AuthorizeWithdrawalFunc(router, func, mask);
         }
     }
 

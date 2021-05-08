@@ -23,7 +23,7 @@ contract DataStructure {
     mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
     mapping(address => uint)                    authorizedRouters;  // 1: earn token, 2: staked token
     mapping(address => bool)                    authorizedFarmers;
-    mapping(address => mapping(bytes4 => bool)) authorizedWithdrawalFunc;
+    mapping(address => mapping(bytes4 => uint)) authorizedWithdrawalFunc;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
     Stake total;
@@ -32,7 +32,7 @@ contract DataStructure {
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
     event AuthorizeRouter(address indexed router, uint mask);
-    event AuthorizeWithdrawalFunc(address indexed router, bytes4 indexed func, bool enable);
+    event AuthorizeWithdrawalFunc(address indexed router, bytes4 indexed func, uint mask);
 
     event Deposit(address indexed sender, address indexed token, uint value);
     event Withdraw(address indexed sender, address indexed token, uint value);
@@ -41,9 +41,10 @@ contract DataStructure {
     uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
     uint constant TOKEN_LEVEL_STAKE         = 2;
 
-    uint constant ROUTER_EARN_TOKEN         = 1 << 0;
-    uint constant ROUTER_STAKE_TOKEN        = 1 << 1;
-    uint constant ROUTER_MASK               = (1 << 2) -1;
+    uint constant ROUTER_EARN_TOKEN             = 2**0;
+    uint constant ROUTER_STAKE_TOKEN            = 2**1;
+    uint constant ROUTER_OWNERSHIP_PRESERVED    = 2**2;     // router that always use msg.sender as recipient
+    uint constant ROUTER_MASK                   = 2**3-1;   // all masks
 
     /**
      * we don't do that here

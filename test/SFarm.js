@@ -16,6 +16,7 @@ const CONFIG_0 = '0'.repeat(24)
 const CONFIG_1 = '1'.padStart(24, '0')
 const CONFIG_2 = '2'.padStart(24, '0')
 const CONFIG_3 = '3'.padStart(24, '0')
+const CONFIG_6 = '6'.padStart(24, '0')
 const TOKEN_LEVEL_RECEIVABLE = CONFIG_1
 const TOKEN_LEVEL_STAKE = CONFIG_2
 
@@ -148,9 +149,9 @@ contract("SFarm", accounts => {
         inst.router.map(r => r.address),
         LARGE_VALUE,
       ), 'unauthorized router')
-  
+
       await inst.farm.authorizeRouters(inst.router.map(r => r.address + CONFIG_2))
-  
+
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
         for (let j = i+1; j < inst.coin.length; ++j) {
@@ -354,6 +355,37 @@ contract("SFarm", accounts => {
       )
     })
 
+    it("authorize router as ownership preserved", async() => {
+      const ss = await snapshot.take()
+
+      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
+
+      await expectRevert(inst.farm.farmExec(
+        ZERO_ADDRESS,
+        ...await execParams(inst.router[0], 'removeLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          liquidity,
+          0, 0,
+          inst.farm.address, LARGE_VALUE,
+        ),
+      ), "not authorized as ownership preserved")
+
+      // authorize the router to farmExec without balance verification
+      await inst.farm.authorizeRouters([ inst.router[0].address + CONFIG_6 ])
+
+      await inst.farm.farmExec(
+        ZERO_ADDRESS,
+        ...await execParams(inst.router[0], 'removeLiquidity',
+          inst.coin[0].address, inst.coin[1].address,
+          liquidity,
+          0, 0,
+          inst.farm.address, LARGE_VALUE,
+        ),
+      )
+
+      await snapshot.revert(ss)
+    })
+
     it('removeLiquidity and stealing', async() => {
       const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
       await expectRevert(inst.farm.farmExec(
@@ -427,7 +459,14 @@ contract("SFarm", accounts => {
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, 1, [], { from: accounts[3] }), "transfer amount exceeds balance")
     })
 
-    it("unauthorized router.function", async() => {
+    it("add some coin buffer", async() => {
+      await inst.coin[3].mint(accounts[0], b3.div(new BN(100)))
+      await inst.farm.deposit(inst.coin[3].address, b3.div(new BN(100)))
+      await inst.coin[4].mint(accounts[0], b4.div(new BN(100)))
+      await inst.farm.deposit(inst.coin[4].address, b4.div(new BN(100)))
+    })
+
+    it("unauthorize router.function", async() => {
       const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
           {
@@ -446,11 +485,11 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity
       await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + '1'+'0'.repeat(15))
+        inst.router.map(r => r.address + 'baa2abde' + '2'.padStart(16,'0'))
       )
 
       await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + '0'.repeat(16))
+        inst.router.map(r => r.address + 'baa2abde' + '0'.padStart(16,'0'))
       )
 
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
@@ -470,15 +509,50 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity again
       await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + '1'+'0'.repeat(15))
+        inst.router.map(r => r.address + 'baa2abde' + '2'.padStart(16,'0'))
       )
     })
 
-    it("add some coin buffer", async() => {
-      await inst.coin[3].mint(accounts[0], b3.div(new BN(100)))
-      await inst.farm.deposit(inst.coin[3].address, b3.div(new BN(100)))
-      await inst.coin[4].mint(accounts[0], b4.div(new BN(100)))
-      await inst.farm.deposit(inst.coin[4].address, b4.div(new BN(100)))
+    it("unauthorize router.function as ownership preserved", async() => {
+      const ss = await snapshot.take()
+
+      const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
+      await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
+          {
+            receivingToken: ZERO_ADDRESS,
+            execs: [
+              await execParam(inst.router[0], "removeLiquidity",
+                inst.coin[3].address, inst.coin[4].address,
+                liquidity,
+                0, 0,
+                inst.farm.address, LARGE_VALUE
+              ),
+            ],
+          },
+        ], { from: accounts[3] },
+      ), "router not authorized as ownership preserved")
+
+      // authorize inst.router[0].removeLiquidity as ownership preserved
+      await inst.farm.authorizeWithdrawalFuncs(
+        [ inst.router[0].address + 'baa2abde' + '6'.padStart(16,'0') ]
+      )
+
+      await inst.farm.withdraw(inst.coin[3].address, b3, [
+          {
+            receivingToken: ZERO_ADDRESS,
+            execs: [
+              await execParam(inst.router[0], "removeLiquidity",
+                inst.coin[3].address, inst.coin[4].address,
+                liquidity,
+                0, 0,
+                inst.farm.address, LARGE_VALUE
+              ),
+            ],
+          },
+        ], { from: accounts[3] },
+      )
+
+      await snapshot.revert(ss)
     })
 
     it('single removeLiquidity', async() => {
@@ -567,7 +641,7 @@ contract("SFarm", accounts => {
       ), "unauthorized")
 
       // authorize the router to swap to earn token
-      await inst.farm.authorizeRouters([ inst.router[0].address + CONFIG_3 ])
+      await inst.farm.authorizeRouters(inst.router.map(r => r.address + CONFIG_3))
     })
 
     // due to slippages, total balance might be != total stake
@@ -589,7 +663,7 @@ contract("SFarm", accounts => {
 
     it("mint some more token for buffer", async() => {
       await inst.coin[3].mint(inst.farm.address, decShift(1, 22));
-})
+    })
 
     it("stealing outstanding token", async() => {
       await expectRevert(inst.farm.processOutstandingToken(
