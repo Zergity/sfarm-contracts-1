@@ -197,11 +197,11 @@ contract SFarm is DataStructure {
         }
     }
 
-    /// warn: it is possible to remove all admins, turning this contract to semi-decentralized contracts
     function authorizeAdmins(bytes32[] calldata changes) external {
         require(authorizedAdmins[msg.sender], "!admin");
         for (uint i; i < changes.length; ++i) {
             address admin = address(bytes20(changes[i]));
+            require(admin != msg.sender, "no self remove");
             bool  enable = uint96(uint(changes[i])) > 0;
             require(authorizedAdmins[admin] != enable, "authorization unchanged");
             authorizedAdmins[admin] = enable;
