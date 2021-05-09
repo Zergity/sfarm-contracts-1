@@ -34,12 +34,6 @@ contract SFarm is DataStructure {
         earnToken = _earnToken;
     }
 
-    function funcSign(bytes memory input) internal pure returns (bytes4 output) {
-        assembly {
-            output := mload(add(input, 32))
-        }
-    }
-
     function farmExec(address receivingToken, address router, bytes calldata input) external {
         // TODO: require authorizedFarmers[msg.sender]
         uint mask = authorizedRouters[router];
@@ -103,7 +97,7 @@ contract SFarm is DataStructure {
             for (uint j = 0; j < rls[i].execs.length; ++j) {
                 address router = rls[i].execs[i].router;
 
-                uint mask = authorizedWithdrawalFunc[router][funcSign(rls[i].execs[j].input)];
+                uint mask = authorizedWithdrawalFunc[router][_funcSign(rls[i].execs[j].input)];
                 require(_isRouterForStakeToken(mask), "unauthorized router.function");
                 if (receivingToken == address(0x0)) {
                     require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");
@@ -250,6 +244,12 @@ contract SFarm is DataStructure {
             require(authorizedWithdrawalFunc[router][func] != mask, "authorization mask unchanged");
             authorizedWithdrawalFunc[router][func] = mask;
             emit AuthorizeWithdrawalFunc(router, func, mask);
+        }
+    }
+
+    function _funcSign(bytes memory input) internal pure returns (bytes4 output) {
+        assembly {
+            output := mload(add(input, 32))
         }
     }
 
