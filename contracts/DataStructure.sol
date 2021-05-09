@@ -20,9 +20,10 @@ contract DataStructure {
 
     uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
 
+    mapping(address => bool)                    authorizedFarmers;
+
     mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
     mapping(address => uint)                    authorizedRouters;  // 1: earn token, 2: staked token
-    mapping(address => bool)                    authorizedFarmers;
     mapping(address => mapping(bytes4 => uint)) authorizedWithdrawalFunc;
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t

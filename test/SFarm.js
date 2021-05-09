@@ -46,6 +46,9 @@ let inst = {
 Math.seedrandom('any string you like');
 
 contract("SFarm", accounts => {
+  const farmer = accounts[2]
+  const admin = accounts[1]
+
   before('should our contracts be deployed', async () => {
     inst.base = await ERC20.new('Base USD', 'BUSD')
     expect(inst.base, 'contract not deployed: BUSD').to.not.be.null
@@ -292,38 +295,70 @@ contract("SFarm", accounts => {
     })
   })
 
-  describe('farmExec', () => {
+  describe('farmerExec', () => {
     it('deposit', async() => {
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
       await inst.farm.deposit(inst.coin[0].address, decShift(60, 18))
     })
 
-    it('swap', async() => {
-      await expectRevert(inst.farm.farmExec(
+    it("unauthorize farmer", async() => {
+      await expectRevert(inst.farm.farmerExec(
+        inst.coin[1].address,
+        ...await execParams(inst.router[0], 'swapExactTokensForTokens',
+          decShift(30, 18), 0,
+          [ inst.coin[0].address, inst.coin[1].address ],
+          accounts[0], LARGE_VALUE,
+        ), { from: farmer },
+      ), "unauthorized farmer")
+
+      await expectRevert(inst.farm.farmerProcessOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          decShift(1, 18), 0,
+          [inst.coin[3].address, inst.earn.address ],
+          accounts[0], LARGE_VALUE,
+        ),
+        Object.values(inst.coin).map(c => c.address),
+        { from: farmer },
+      ), "unauthorized farmer")
+
+      await inst.farm.authorizeFarmers([ farmer + '1'.padStart(24,'0') ])
+
+      await expectRevert(inst.farm.farmerExec(
         inst.coin[1].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
           [ inst.coin[0].address, inst.coin[1].address ],
           accounts[0], LARGE_VALUE,
         ),
+      ), "unauthorized farmer")
+    })
+
+    it('swap', async() => {
+      await expectRevert(inst.farm.farmerExec(
+        inst.coin[1].address,
+        ...await execParams(inst.router[0], 'swapExactTokensForTokens',
+          decShift(30, 18), 0,
+          [ inst.coin[0].address, inst.coin[1].address ],
+          accounts[0], LARGE_VALUE,
+          ), { from: farmer },
       ), "token balance unchanged")
 
-      await expectRevert(inst.farm.farmExec(
+      await expectRevert(inst.farm.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
           [ inst.coin[0].address, inst.coin[1].address ],
           inst.farm.address, LARGE_VALUE,
-        ),
+          ), { from: farmer },
       ), "token balance unchanged")
   
-      await inst.farm.farmExec(
+      await inst.farm.farmerExec(
         inst.coin[1].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
           [ inst.coin[0].address, inst.coin[1].address ],
           inst.farm.address, LARGE_VALUE,
-        ),
+          ), { from: farmer },
       )
     })
 
@@ -331,14 +366,14 @@ contract("SFarm", accounts => {
       const balance0 = await inst.coin[0].balanceOf(inst.farm.address)
       const balance1 = await inst.coin[1].balanceOf(inst.farm.address)
 
-      await expectRevert(inst.farm.farmExec(
+      await expectRevert(inst.farm.farmerExec(
         inst.pair[0][1].address,
         ...await execParams(inst.router[0], 'addLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           balance0, balance1,
           0, 0,
           accounts[3], LARGE_VALUE,
-        ),
+          ), { from: farmer },
       ), "token balance unchanged")
     })
 
@@ -346,14 +381,14 @@ contract("SFarm", accounts => {
       const balance0 = await inst.coin[0].balanceOf(inst.farm.address)
       const balance1 = await inst.coin[1].balanceOf(inst.farm.address)
 
-      await inst.farm.farmExec(
+      await inst.farm.farmerExec(
         inst.pair[0][1].address,
         ...await execParams(inst.router[0], 'addLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           balance0, balance1,
           0, 0,
           inst.farm.address, LARGE_VALUE,
-        ),
+          ), { from: farmer },
       )
     })
 
@@ -362,27 +397,27 @@ contract("SFarm", accounts => {
 
       const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
 
-      await expectRevert(inst.farm.farmExec(
+      await expectRevert(inst.farm.farmerExec(
         ZERO_ADDRESS,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
           inst.farm.address, LARGE_VALUE,
-        ),
+        ), { from: farmer },
       ), "not authorized as ownership preserved")
 
-      // authorize the router to farmExec without balance verification
+      // authorize the router to farmerExec without balance verification
       await inst.farm.authorizeRouters([ inst.router[0].address + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ])
 
-      await inst.farm.farmExec(
+      await inst.farm.farmerExec(
         ZERO_ADDRESS,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
           inst.farm.address, LARGE_VALUE,
-        ),
+        ), { from: farmer },
       )
 
       await snapshot.revert(ss)
@@ -390,40 +425,40 @@ contract("SFarm", accounts => {
 
     it('removeLiquidity and stealing', async() => {
       const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
-      await expectRevert(inst.farm.farmExec(
+      await expectRevert(inst.farm.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
           accounts[1], LARGE_VALUE,
-        ),
+        ), { from: farmer },
       ), "token balance unchanged")
     })
 
     it('removeLiquidity more than owned', async() => {
       const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
-      await expectRevert(inst.farm.farmExec(
+      await expectRevert(inst.farm.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity.add(new BN(1)),
           0, 0,
           inst.farm.address, LARGE_VALUE,
-        ),
+        ), { from: farmer },
       ), "ds-math-sub-underflow")
     })
 
     it('removeLiquidity', async() => {
       const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
-      await inst.farm.farmExec(
+      await inst.farm.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
           inst.farm.address, LARGE_VALUE,
-        ),
+        ), { from: farmer },
       )
     })
 
@@ -448,14 +483,14 @@ contract("SFarm", accounts => {
 
       await time.increase(48*60*60);
 
-      await inst.farm.farmExec(
+      await inst.farm.farmerExec(
         inst.pair[3][4].address,
         ...await execParams(inst.router[0], 'addLiquidity',
           inst.coin[3].address, inst.coin[4].address,
           b3, b4,
           0, 0,
           inst.farm.address, LARGE_VALUE
-        )
+        ), { from: farmer },
       )
 
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, 1, [], { from: accounts[3] }), "transfer amount exceeds balance")
@@ -619,21 +654,21 @@ contract("SFarm", accounts => {
           if (liquidity.isZero()) {
             continue
           }
-          await inst.farm.farmExec(
+          await inst.farm.farmerExec(
             inst.coin[i].address,
             ...await execParams(inst.router[0], "removeLiquidity",
               inst.coin[i].address, inst.coin[j].address,
               liquidity,
               0, 0,
               inst.farm.address, LARGE_VALUE,
-            ),
+            ), { from: farmer },
           )
         }
       }
     })
 
     it("authorized earn token router", async() => {
-      await expectRevert(inst.farm.processOutstandingToken(
+      await expectRevert(inst.farm.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           1, 0,
           [inst.coin[0].address, inst.earn.address ],
@@ -653,13 +688,14 @@ contract("SFarm", accounts => {
     it("outstanding token: over processed", async() => {
       // due to slippages, total balance might be != total stake
 
-      await expectRevert(inst.farm.processOutstandingToken(
+      await expectRevert(inst.farm.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           1000, 0,
           [inst.coin[3].address, inst.earn.address ],
           inst.farm.address, LARGE_VALUE,
         ),
         Object.values(inst.coin).map(c => c.address),
+        { from: farmer },
       ), "over proccessed")
     })
 
@@ -668,24 +704,26 @@ contract("SFarm", accounts => {
     })
 
     it("stealing outstanding token", async() => {
-      await expectRevert(inst.farm.processOutstandingToken(
+      await expectRevert(inst.farm.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           decShift(1, 18), 0,
           [inst.coin[3].address, inst.earn.address ],
           accounts[0], LARGE_VALUE,
         ),
         Object.values(inst.coin).map(c => c.address),
+        { from: farmer },
       ), "earn token balance unchanged")
     })
 
     it("outstanding token", async() => {
-      await inst.farm.processOutstandingToken(
+      await inst.farm.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           decShift(1, 18), 0,
           [inst.coin[3].address, inst.earn.address ],
           inst.farm.address, LARGE_VALUE,
         ),
         Object.values(inst.coin).map(c => c.address),
+        { from: farmer },
       )
     })
 

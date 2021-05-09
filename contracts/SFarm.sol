@@ -34,29 +34,6 @@ contract SFarm is DataStructure {
         earnToken = _earnToken;
     }
 
-    function farmExec(address receivingToken, address router, bytes calldata input) external {
-        // TODO: require authorizedFarmers[msg.sender]
-        uint mask = authorizedRouters[router];
-        require(_isRouterForStakeToken(mask), "unauthorized router");
-
-        // skip the balance check for router that always use msg.sender instead of `recipient` field (unlike Uniswap)
-        if (receivingToken == address(0x0)) {
-            require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");
-            (bool success,) = router.call(input);
-            return _forwardCallResult(success);
-        }
-
-        require(_isTokenReceivable(receivingToken), "unauthorized receiving token");
-        uint balanceBefore = IERC20(receivingToken).balanceOf(address(this));
-
-        (bool success,) = router.call(input);
-        if (!success) {
-            return _forwardCallResult(success);
-        }
-
-        require(IERC20(receivingToken).balanceOf(address(this)) > balanceBefore, "token balance unchanged");
-    }
-
     function deposit(address token, uint amount) external {
         require(_isTokenStakable(token), "unauthorized token");
         IERC20(token).transferFrom(msg.sender, address(this), amount);
@@ -129,12 +106,58 @@ contract SFarm is DataStructure {
         emit Withdraw(msg.sender, token, amount);
     }
 
+    // harvest ZD
+    function harvest(uint scale) external returns (uint earn) {
+        Stake memory stake = stakes[msg.sender];
+        uint value = stake.value();
+        uint totalValue = total.value();
+
+        // update the sender and total stake
+        stakes[msg.sender] = stake.harvest(value);
+        total = total.harvest(value);
+
+        uint totalEarn = IERC20(earnToken).balanceOf(address(this));
+        if (scale == 0) {
+            scale = 1;
+        }
+        earn = totalEarn > value ? value.mul(totalEarn/scale) : totalEarn.mul(value/scale);
+        earn = (earn/totalValue).mul(scale);
+
+        IERC20(earnToken).transfer(msg.sender, earn);
+        emit Harvest(msg.sender, earn);
+    }
+
+    function farmerExec(address receivingToken, address router, bytes calldata input) external {
+        require(authorizedFarmers[msg.sender], "unauthorized farmer");
+        uint mask = authorizedRouters[router];
+        require(_isRouterForStakeToken(mask), "unauthorized router");
+
+        // skip the balance check for router that always use msg.sender instead of `recipient` field (unlike Uniswap)
+        if (receivingToken == address(0x0)) {
+            require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");
+            (bool success,) = router.call(input);
+            return _forwardCallResult(success);
+        }
+
+        require(_isTokenReceivable(receivingToken), "unauthorized receiving token");
+        uint balanceBefore = IERC20(receivingToken).balanceOf(address(this));
+
+        (bool success,) = router.call(input);
+        if (!success) {
+            return _forwardCallResult(success);
+        }
+
+        require(IERC20(receivingToken).balanceOf(address(this)) > balanceBefore, "token balance unchanged");
+    }
+
     // this function allow farmer to convert token fee earn from LP in the authorizedTokens
-    function processOutstandingToken(
+    function farmerProcessOutstandingToken(
         address             router,           // LP router to swap token to earnToken
         bytes     calldata  input,
         address[] calldata  tokens
     ) external {
+        require(authorizedFarmers[msg.sender], "unauthorized farmer");
+
         require(tokens.length == stakeTokensCount, "incorrect tokens count");
         require(_isRouterForEarnToken(authorizedRouters[router]), "unauthorized router");
 
@@ -159,28 +182,8 @@ contract SFarm is DataStructure {
         require(total.stake() <= totalBalance, "over proccessed");
     }
 
-    // harvest ZD
-    function harvest(uint scale) external returns (uint earn) {
-        Stake memory stake = stakes[msg.sender];
-        uint value = stake.value();
-        uint totalValue = total.value();
-
-        // update the sender and total stake
-        stakes[msg.sender] = stake.harvest(value);
-        total = total.harvest(value);
-
-        uint totalEarn = IERC20(earnToken).balanceOf(address(this));
-        if (scale == 0) {
-            scale = 1;
-        }
-        earn = totalEarn > value ? value.mul(totalEarn/scale) : totalEarn.mul(value/scale);
-        earn = (earn/totalValue).mul(scale);
-
-        IERC20(earnToken).transfer(msg.sender, earn);
-        emit Harvest(msg.sender, earn);
-    }
-
     function approve(address[] calldata tokens, address[] calldata routers, uint amount) external {
+        // @admin
         for (uint j = 0; j < routers.length; ++j) {
             address router = routers[j];
             require(authorizedRouters[router] > 0, "unauthorized router");
@@ -190,17 +193,14 @@ contract SFarm is DataStructure {
         }
     }
 
-    function authorizeFarmers(address[] calldata add, address[] calldata remove) external {
+    function authorizeFarmers(bytes32[] calldata changes) external {
         // @admin
-        for (uint i; i < add.length; ++i) {
-            address farmer = add[i];
-            authorizedFarmers[farmer] = true;
-            emit AuthorizeFarmer(farmer, true);
-        }
-        for (uint i; i < remove.length; ++i) {
-            address farmer = add[i];
-            delete authorizedFarmers[farmer];
-            emit AuthorizeFarmer(farmer, false);
+        for (uint i; i < changes.length; ++i) {
+            address farmer = address(bytes20(changes[i]));
+            bool  enable = uint96(uint(changes[i])) > 0;
+            require(authorizedFarmers[farmer] != enable, "authorization unchanged");
+            authorizedFarmers[farmer] = enable;
+            emit AuthorizeFarmer(farmer, enable);
         }
     }
 
