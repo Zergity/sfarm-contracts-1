@@ -68,8 +68,10 @@ contract("SFarm", accounts => {
   before("init liquidity routers", async() => {
     for (let i = 0; i < inst.coin.length-1; ++i) {
       for (let j = i+1; j < inst.coin.length; ++j) {
-        const amountA = decShift(Math.random(), 24)
-        const amountB = decShift(Math.random(), 24)
+        const a = Math.random()
+        const b = a + (Math.random()/100) - 1/200
+        const amountA = decShift(a, 24)
+        const amountB = decShift(b, 24)
         await inst.coin[i].mint(accounts[0], amountA)
         await inst.coin[j].mint(accounts[0], amountB)
         await inst.coin[i].approve(inst.router[0].address, LARGE_VALUE)
