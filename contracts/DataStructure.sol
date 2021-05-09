@@ -41,10 +41,9 @@ contract DataStructure {
     uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
     uint constant TOKEN_LEVEL_STAKE         = 2;
 
-    uint constant ROUTER_EARN_TOKEN             = 2**0;
-    uint constant ROUTER_STAKE_TOKEN            = 2**1;
-    uint constant ROUTER_OWNERSHIP_PRESERVED    = 2**2;     // router that always use msg.sender as recipient
-    uint constant ROUTER_MASK                   = 2**3-1;   // all masks
+    uint constant ROUTER_EARN_TOKEN             = 1 << 0;
+    uint constant ROUTER_STAKE_TOKEN            = 1 << 1;
+    uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
     /**
      * we don't do that here
