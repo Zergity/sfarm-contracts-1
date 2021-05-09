@@ -54,7 +54,7 @@ contract("SFarm", accounts => {
     expect(inst.base, 'contract not deployed: BUSD').to.not.be.null
     inst.earn = await ERC20.new('ezDeFi', 'ZD')
     expect(inst.earn, 'contract not deployed: ZD').to.not.be.null
-    inst.farm = await SFarm.new(inst.base.address, inst.earn.address)
+    inst.farm = await SFarm.new(inst.base.address, inst.earn.address, admin)
     expect(inst.farm, 'contract not deployed: SFarm').to.not.be.null
     for (let i = 0; i < accounts.length; ++i) {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)
@@ -117,9 +117,13 @@ contract("SFarm", accounts => {
   })
 
   describe('setup', () => {
+    it("!admin", async() => {
+      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")
+    })
+
     it("authorize tokens for stake", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
-      await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE), { from: admin })
     })
 
     it("authorize tokens for receiving", async() => {
@@ -132,7 +136,7 @@ contract("SFarm", accounts => {
           }
         }
       }
-      await inst.farm.authorizeTokens(pairs)
+      await inst.farm.authorizeTokens(pairs, { from: admin })
     })
 
     it("approve farm to spent all coins", async() => {
@@ -153,9 +157,10 @@ contract("SFarm", accounts => {
         inst.coin.map(c => c.address),
         inst.router.map(r => r.address),
         LARGE_VALUE,
+        { from: admin },
       ), 'unauthorized router')
 
-      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)))
+      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)), { from: admin })
 
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
@@ -168,6 +173,7 @@ contract("SFarm", accounts => {
         coins,
         inst.router.map(r => r.address),
         LARGE_VALUE,
+        { from: admin },
       )
     })
   })
@@ -321,7 +327,7 @@ contract("SFarm", accounts => {
         { from: farmer },
       ), "unauthorized farmer")
 
-      await inst.farm.authorizeFarmers([ farmer + '1'.padStart(24,'0') ])
+      await inst.farm.authorizeFarmers([ farmer + '1'.padStart(24,'0') ], { from: admin })
 
       await expectRevert(inst.farm.farmerExec(
         inst.coin[1].address,
@@ -408,7 +414,7 @@ contract("SFarm", accounts => {
       ), "not authorized as ownership preserved")
 
       // authorize the router to farmerExec without balance verification
-      await inst.farm.authorizeRouters([ inst.router[0].address + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ])
+      await inst.farm.authorizeRouters([ inst.router[0].address + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ], { from: admin })
 
       await inst.farm.farmerExec(
         ZERO_ADDRESS,
@@ -522,11 +528,11 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity
       await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN))
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN)), { from: admin }
       )
 
       await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_NONE))
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_NONE)), { from: admin }
       )
 
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
@@ -547,6 +553,7 @@ contract("SFarm", accounts => {
       // authorize inst.router[0].removeLiquidity again
       await inst.farm.authorizeWithdrawalFuncs(
         inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN))
+        , { from: admin }
       )
     })
 
@@ -571,7 +578,8 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity as ownership preserved
       await inst.farm.authorizeWithdrawalFuncs(
-        [ inst.router[0].address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+        [ inst.router[0].address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ],
+        { from: admin },
       )
 
       await inst.farm.withdraw(inst.coin[3].address, b3, [
@@ -678,7 +686,7 @@ contract("SFarm", accounts => {
       ), "unauthorized")
 
       // authorize the router to swap to earn token
-      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN)))
+      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN)), { from: admin })
     })
 
     // due to slippages, total balance might be != total stake

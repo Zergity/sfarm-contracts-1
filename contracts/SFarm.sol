@@ -19,19 +19,23 @@ contract SFarm is DataStructure {
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
 
-    constructor(address _baseToken, address _earnToken) public {
-        _initialize(_baseToken, _earnToken);
+    constructor(address _baseToken, address _earnToken, address _admin) public {
+        if (_admin == address(0x0)) {
+            _admin = msg.sender;
+        }
+        _initialize(_baseToken, _earnToken, _admin);
     }
 
     /// reserved for proxy contract
-    function initialize(address _baseToken, address _earnToken) public {
+    function initialize(address _baseToken, address _earnToken, address _admin) public {
         require(msg.sender == address(this), "!internal");
-        _initialize(_baseToken, _earnToken);
+        _initialize(_baseToken, _earnToken, _admin);
     }
 
-    function _initialize(address _baseToken, address _earnToken) internal {
+    function _initialize(address _baseToken, address _earnToken, address _admin) internal {
         baseToken = _baseToken;
         earnToken = _earnToken;
+        authorizedAdmins[_admin] = true;
     }
 
     function deposit(address token, uint amount) external {
@@ -183,7 +187,7 @@ contract SFarm is DataStructure {
     }
 
     function approve(address[] calldata tokens, address[] calldata routers, uint amount) external {
-        // @admin
+        require(authorizedAdmins[msg.sender], "!admin");
         for (uint j = 0; j < routers.length; ++j) {
             address router = routers[j];
             require(authorizedRouters[router] > 0, "unauthorized router");
@@ -193,8 +197,20 @@ contract SFarm is DataStructure {
         }
     }
 
+    /// warn: it is possible to remove all admins, turning this contract to semi-decentralized contracts
+    function authorizeAdmins(bytes32[] calldata changes) external {
+        require(authorizedAdmins[msg.sender], "!admin");
+        for (uint i; i < changes.length; ++i) {
+            address admin = address(bytes20(changes[i]));
+            bool  enable = uint96(uint(changes[i])) > 0;
+            require(authorizedAdmins[admin] != enable, "authorization unchanged");
+            authorizedAdmins[admin] = enable;
+            emit AuthorizeAdmin(admin, enable);
+        }
+    }
+
     function authorizeFarmers(bytes32[] calldata changes) external {
-        // @admin
+        require(authorizedAdmins[msg.sender], "!admin");
         for (uint i; i < changes.length; ++i) {
             address farmer = address(bytes20(changes[i]));
             bool  enable = uint96(uint(changes[i])) > 0;
@@ -205,7 +221,7 @@ contract SFarm is DataStructure {
     }
 
     function authorizeRouters(bytes32[] calldata changes) external {
-        // @admin
+        require(authorizedAdmins[msg.sender], "!admin");
         uint ROUTER_MASK = ROUTER_EARN_TOKEN + ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
@@ -217,7 +233,7 @@ contract SFarm is DataStructure {
     }
 
     function authorizeTokens(bytes32[] calldata changes) external {
-        // @admin
+        require(authorizedAdmins[msg.sender], "!admin");
         for (uint i; i < changes.length; ++i) {
             address token = address(bytes20(changes[i]));
             uint96  level = uint96(uint(changes[i]));
@@ -235,7 +251,7 @@ contract SFarm is DataStructure {
 
     // 20 bytes router address + 4 bytes func signature + 8 bytes bool
     function authorizeWithdrawalFuncs(bytes32[] calldata changes) external {
-        // @admin
+        require(authorizedAdmins[msg.sender], "!admin");
         uint ROUTER_MASK = ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));

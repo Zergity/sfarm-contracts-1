@@ -20,6 +20,7 @@ contract DataStructure {
 
     uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
 
+    mapping(address => bool)                    authorizedAdmins;
     mapping(address => bool)                    authorizedFarmers;
 
     mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
@@ -30,6 +31,7 @@ contract DataStructure {
     Stake total;
     using StakeLib for Stake;
 
+    event AuthorizeAdmin(address indexed admin, bool enable);
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
     event AuthorizeRouter(address indexed router, uint mask);
