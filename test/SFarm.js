@@ -3,7 +3,7 @@ const { expect } = require('chai');
 const { ethers } = require('ethers');
 const { time, expectRevert, expectEvent, BN } = require('@openzeppelin/test-helpers');
 const snapshot = require('./lib/snapshot');
-const utils = require('./lib/utils');
+const { strip0x } = require('./lib/utils');
 const { decShift } = require('../tools/lib/big');
 require('./lib/seedrandom');
 
@@ -203,6 +203,55 @@ contract("SFarm", accounts => {
       await inst.farm.cancelTransaction(...params, { from: admin })
       await time.increase(4*24*60*60 + TIME_TOLLERANCE)
       await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
+    })
+
+    it("timelock: farmerExec attack", async() => {
+      const ss = await snapshot.take()
+
+      await adminExec("authorizeFarmers", [ farmer + '1'.padStart(24,'0') ])
+
+      await expectRevert(adminExec("authorizeRouters",
+        [ inst.farm.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+      ), "nice try")
+
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      const input = params[3]
+
+      await expectRevert(inst.farm.farmerExec(
+        inst.coin[0].address,
+        inst.farm.address,
+        input,
+        { from: farmer },
+      ), "unauthorized router")
+
+      await snapshot.revert(ss)
+    })
+
+    it("timelock: withdraw attack", async() => {
+      const ss = await snapshot.take()
+
+      const amount = 1000000;
+      await inst.coin[0].mint(accounts[0], amount)
+      await inst.farm.deposit(inst.coin[0].address, amount)
+
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      const input = params[3]
+      const funcSign = strip0x(input).substr(0, 8)
+
+      await expectRevert(adminExec("authorizeWithdrawalFuncs",
+        [ inst.farm.address + funcSign + routerWithdrawalMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+      ), "nice try")
+
+      await expectRevert(inst.farm.withdraw(inst.coin[0].address, amount, [{
+          receivingToken: inst.coin[0].address,
+          execs: [{
+            router: inst.farm.address,
+            input,
+          }],
+        }],
+      ), "unauthorized router.function")
+
+      await snapshot.revert(ss)
     })
   })
 

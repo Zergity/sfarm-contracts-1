@@ -240,6 +240,7 @@ contract SFarm is Timelock {
         uint ROUTER_MASK = ROUTER_EARN_TOKEN + ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
+            require(router != address(this), "nice try");
             uint mask = uint(changes[i]) & ROUTER_MASK;
             require(authorizedRouters[router] != mask, "authorization mask unchanged");
             authorizedRouters[router] = mask;
@@ -270,6 +271,7 @@ contract SFarm is Timelock {
         uint ROUTER_MASK = ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
+            require(router != address(this), "nice try");
             bytes4 func = bytes4(bytes12(uint96(uint(changes[i]))));
             uint mask = uint(changes[i]) & ROUTER_MASK;
             require(authorizedWithdrawalFunc[router][func] != mask, "authorization mask unchanged");
