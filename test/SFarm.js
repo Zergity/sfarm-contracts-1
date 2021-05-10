@@ -54,7 +54,7 @@ contract("SFarm", accounts => {
     expect(inst.base, 'contract not deployed: BUSD').to.not.be.null
     inst.earn = await ERC20.new('ezDeFi', 'ZD')
     expect(inst.earn, 'contract not deployed: ZD').to.not.be.null
-    inst.farm = await SFarm.new(inst.base.address, inst.earn.address, admin, decShift(0.1, 18))
+    inst.farm = await SFarm.new(inst.base.address, inst.earn.address, admin, decShift(0.1, 18), 7*24*60*60)
     expect(inst.farm, 'contract not deployed: SFarm').to.not.be.null
     for (let i = 0; i < accounts.length; ++i) {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)

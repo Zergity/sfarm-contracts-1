@@ -13,7 +13,11 @@ import "./lib/StakeLib.sol";
  */
 contract DataStructure {
     // Upgradable Contract Proxy //
-    mapping(bytes4 => address) impls;   // function signature => implementation contract address
+    // mapping(bytes4 => address) impls;   // function signature => implementation contract address
+
+    // Admin TimeLock
+    uint public delay;
+    mapping (bytes32 => bool) public queuedTransactions;
 
     address baseToken;  // any authorized token deposit in here is denominated to this token
     address earnToken;  // reward token (ZD)

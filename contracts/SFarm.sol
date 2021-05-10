@@ -7,11 +7,11 @@ pragma experimental ABIEncoderV2;
 
 // solium-disable security/no-inline-assembly
 
-import "./DataStructure.sol";
+import "./Timelock.sol";
 import './interfaces/IUniswapV2Router01.sol';
 import './interfaces/IERC20.sol';
 
-contract SFarm is DataStructure {
+contract SFarm is Timelock {
     using SafeMath for uint;
     using SafeMath for uint192;
     using SafeMath for uint64;
@@ -19,26 +19,22 @@ contract SFarm is DataStructure {
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
 
-    constructor(address _baseToken, address _earnToken, address _admin, uint _subsidyRate) public {
+    constructor(
+        address _baseToken,
+        address _earnToken,
+        address _admin,
+        uint _subsidyRate,
+        uint _delay
+    ) Timelock(_delay) public {
+        require(_subsidyRate < SUBSIDY_UNIT, "subsidyRate overflow");
+        subsidyRate = uint64(_subsidyRate);
         if (_admin == address(0x0)) {
             _admin = msg.sender;
         }
-        _initialize(_baseToken, _earnToken, _admin, _subsidyRate);
-    }
-
-    /// reserved for proxy contract
-    function initialize(address _baseToken, address _earnToken, address _admin, uint _subsidyRate) public {
-        require(msg.sender == address(this), "!internal");
-        _initialize(_baseToken, _earnToken, _admin, _subsidyRate);
-    }
-
-    function _initialize(address _baseToken, address _earnToken, address _admin, uint _subsidyRate) internal {
-        require(_subsidyRate < SUBSIDY_UNIT, "subsidyRate overflow");
+        subsidyRecipient = _admin;
+        authorizedAdmins[_admin] = true;
         baseToken = _baseToken;
         earnToken = _earnToken;
-        authorizedAdmins[_admin] = true;
-        subsidyRate = uint64(_subsidyRate);
-        subsidyRecipient = _admin;
     }
 
     function deposit(address token, uint amount) external {
