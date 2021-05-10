@@ -116,40 +116,6 @@ contract("SFarm", accounts => {
     }
   })
 
-  describe('timelock', () => {
-    it("!timelock", async() => {
-      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!timelock")
-    })
-
-    it("!admin", async() => {
-      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await expectRevert(inst.farm.queueTransaction(...params), "!admin")
-    })
-
-    it("timelock: too soon", async() => {
-      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await inst.farm.queueTransaction(...params, { from: admin })
-      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
-      await time.increase(7*24*60*60 + TIME_TOLLERANCE)
-      await expectRevert(inst.farm.executeTransaction(...params), "!admin")
-    })
-
-    it("timelock: not queued", async() => {
-      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await time.increase(7*24*60*60 + TIME_TOLLERANCE)
-      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
-    })
-
-    it("timelock: canceled", async() => {
-      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await inst.farm.queueTransaction(...params, { from: admin })
-      await time.increase(3*24*60*60 + TIME_TOLLERANCE)
-      await inst.farm.cancelTransaction(...params, { from: admin })
-      await time.increase(4*24*60*60 + TIME_TOLLERANCE)
-      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
-    })
-  })
-
   describe('setup', () => {
     it("authorize tokens for stake", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
@@ -203,6 +169,40 @@ contract("SFarm", accounts => {
         inst.router.map(r => r.address),
         LARGE_VALUE,
       )
+    })
+  })
+
+  describe('timelock', () => {
+    it("!timelock", async() => {
+      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!timelock")
+    })
+
+    it("!admin", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await expectRevert(inst.farm.queueTransaction(...params), "!admin")
+    })
+
+    it("timelock: too soon", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await inst.farm.queueTransaction(...params, { from: admin })
+      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
+      await time.increase(7*24*60*60 + TIME_TOLLERANCE)
+      await expectRevert(inst.farm.executeTransaction(...params), "!admin")
+    })
+
+    it("timelock: not queued", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await time.increase(7*24*60*60 + TIME_TOLLERANCE)
+      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
+    })
+
+    it("timelock: canceled", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await inst.farm.queueTransaction(...params, { from: admin })
+      await time.increase(3*24*60*60 + TIME_TOLLERANCE)
+      await inst.farm.cancelTransaction(...params, { from: admin })
+      await time.increase(4*24*60*60 + TIME_TOLLERANCE)
+      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
     })
   })
 
