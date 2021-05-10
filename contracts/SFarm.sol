@@ -193,7 +193,7 @@ contract SFarm is Timelock {
     }
 
     function setSubsidy(address recipient, uint rate) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         require(rate < SUBSIDY_UNIT, "subsidyRate overflow");
         subsidyRate = uint64(rate);
         if (recipient != address(0x0)) {
@@ -202,7 +202,7 @@ contract SFarm is Timelock {
     }
 
     function approve(address[] calldata tokens, address[] calldata routers, uint amount) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         for (uint j = 0; j < routers.length; ++j) {
             address router = routers[j];
             require(authorizedRouters[router] > 0, "unauthorized router");
@@ -213,7 +213,7 @@ contract SFarm is Timelock {
     }
 
     function authorizeAdmins(bytes32[] calldata changes) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         for (uint i; i < changes.length; ++i) {
             address admin = address(bytes20(changes[i]));
             require(admin != msg.sender, "no self remove");
@@ -225,7 +225,7 @@ contract SFarm is Timelock {
     }
 
     function authorizeFarmers(bytes32[] calldata changes) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         for (uint i; i < changes.length; ++i) {
             address farmer = address(bytes20(changes[i]));
             bool  enable = uint96(uint(changes[i])) > 0;
@@ -236,7 +236,7 @@ contract SFarm is Timelock {
     }
 
     function authorizeRouters(bytes32[] calldata changes) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         uint ROUTER_MASK = ROUTER_EARN_TOKEN + ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
@@ -248,7 +248,7 @@ contract SFarm is Timelock {
     }
 
     function authorizeTokens(bytes32[] calldata changes) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         for (uint i; i < changes.length; ++i) {
             address token = address(bytes20(changes[i]));
             uint96  level = uint96(uint(changes[i]));
@@ -266,7 +266,7 @@ contract SFarm is Timelock {
 
     // 20 bytes router address + 4 bytes func signature + 8 bytes bool
     function authorizeWithdrawalFuncs(bytes32[] calldata changes) external {
-        require(authorizedAdmins[msg.sender], "!admin");
+        require(msg.sender == address(this), "!timelock");
         uint ROUTER_MASK = ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));

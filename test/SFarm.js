@@ -116,14 +116,44 @@ contract("SFarm", accounts => {
     }
   })
 
-  describe('setup', () => {
-    it("!admin", async() => {
-      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")
+  describe('timelock', () => {
+    it("!timelock", async() => {
+      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!timelock")
     })
 
+    it("!admin", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await expectRevert(inst.farm.queueTransaction(...params), "!admin")
+    })
+
+    it("timelock: too soon", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await inst.farm.queueTransaction(...params, { from: admin })
+      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
+      await time.increase(7*24*60*60 + TIME_TOLLERANCE)
+      await expectRevert(inst.farm.executeTransaction(...params), "!admin")
+    })
+
+    it("timelock: not queued", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await time.increase(7*24*60*60 + TIME_TOLLERANCE)
+      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
+    })
+
+    it("timelock: canceled", async() => {
+      const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await inst.farm.queueTransaction(...params, { from: admin })
+      await time.increase(3*24*60*60 + TIME_TOLLERANCE)
+      await inst.farm.cancelTransaction(...params, { from: admin })
+      await time.increase(4*24*60*60 + TIME_TOLLERANCE)
+      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
+    })
+  })
+
+  describe('setup', () => {
     it("authorize tokens for stake", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
-      await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE), { from: admin })
+      await adminExec('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
     })
 
     it("authorize tokens for receiving", async() => {
@@ -136,7 +166,7 @@ contract("SFarm", accounts => {
           }
         }
       }
-      await inst.farm.authorizeTokens(pairs, { from: admin })
+      await adminExec('authorizeTokens', pairs)
     })
 
     it("approve farm to spent all coins", async() => {
@@ -153,14 +183,13 @@ contract("SFarm", accounts => {
     })
 
     it("approve router to spent all farm's coins", async() => {
-      await expectRevert(inst.farm.approve(
+      await expectRevert(adminExec('approve',
         inst.coin.map(c => c.address),
         inst.router.map(r => r.address),
         LARGE_VALUE,
-        { from: admin },
       ), 'unauthorized router')
 
-      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)), { from: admin })
+      await adminExec("authorizeRouters", inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)))
 
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
@@ -169,11 +198,10 @@ contract("SFarm", accounts => {
         }
       }
 
-      await inst.farm.approve(
+      await adminExec("approve",
         coins,
         inst.router.map(r => r.address),
         LARGE_VALUE,
-        { from: admin },
       )
     })
   })
@@ -327,7 +355,7 @@ contract("SFarm", accounts => {
         { from: farmer },
       ), "unauthorized farmer")
 
-      await inst.farm.authorizeFarmers([ farmer + '1'.padStart(24,'0') ], { from: admin })
+      await adminExec("authorizeFarmers", [ farmer + '1'.padStart(24,'0') ])
 
       await expectRevert(inst.farm.farmerExec(
         inst.coin[1].address,
@@ -414,7 +442,7 @@ contract("SFarm", accounts => {
       ), "not authorized as ownership preserved")
 
       // authorize the router to farmerExec without balance verification
-      await inst.farm.authorizeRouters([ inst.router[0].address + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ], { from: admin })
+      await adminExec("authorizeRouters", [ inst.router[0].address + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ])
 
       await inst.farm.farmerExec(
         ZERO_ADDRESS,
@@ -527,12 +555,12 @@ contract("SFarm", accounts => {
       ), "unauthorized router.function")
 
       // authorize inst.router[0].removeLiquidity
-      await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN)), { from: admin }
+      await adminExec("authorizeWithdrawalFuncs",
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN)),
       )
 
-      await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_NONE)), { from: admin }
+      await adminExec("authorizeWithdrawalFuncs",
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_NONE)),
       )
 
       await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
@@ -551,9 +579,8 @@ contract("SFarm", accounts => {
       ), "unauthorized router.function")
 
       // authorize inst.router[0].removeLiquidity again
-      await inst.farm.authorizeWithdrawalFuncs(
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN))
-        , { from: admin }
+      await adminExec("authorizeWithdrawalFuncs",
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN)),
       )
     })
 
@@ -577,9 +604,8 @@ contract("SFarm", accounts => {
       ), "router not authorized as ownership preserved")
 
       // authorize inst.router[0].removeLiquidity as ownership preserved
-      await inst.farm.authorizeWithdrawalFuncs(
+      await adminExec("authorizeWithdrawalFuncs",
         [ inst.router[0].address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ],
-        { from: admin },
       )
 
       await inst.farm.withdraw(inst.coin[3].address, b3, [
@@ -686,7 +712,7 @@ contract("SFarm", accounts => {
       ), "unauthorized")
 
       // authorize the router to swap to earn token
-      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN)), { from: admin })
+      await adminExec("authorizeRouters", inst.router.map(r => r.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN)))
     })
 
     // due to slippages, total balance might be != total stake
@@ -812,8 +838,19 @@ contract("SFarm", accounts => {
       expect(value1).is.bignumber
         .at.most(expectdValue1.mul(new BN(102)).div(new BN(100)), "harvest value by double the stake time at most")
         .at.least(expectdValue1.mul(new BN(98)).div(new BN(100)), "harvest value by double the stake time at least")
+    })
   })
-  })
+
+  async function adminExec(func, ...args) {
+    await expectRevert(inst.farm[func](...args), "!timelock")
+    const params = await timelockParams(func, ...args)
+    await expectRevert(inst.farm.queueTransaction(...params), "!admin")
+    await inst.farm.queueTransaction(...params, { from: admin })
+    await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
+    await time.increase(7*24*60*60 + TIME_TOLLERANCE)
+    await expectRevert(inst.farm.executeTransaction(...params), "!admin")
+    return inst.farm.executeTransaction(...params, { from: admin })
+  }
 })
 
 async function execParams(router, func, ...args) {
@@ -827,6 +864,12 @@ async function execParam(router, func, ...args) {
     router: router.address,
     input: data,
   }
+}
+
+async function timelockParams(func, ...args) {
+  const { data } = await inst.farm[func].request(...args)
+  const eta = parseInt(await time.latest()) + 7*24*60*60 + TIME_TOLLERANCE
+  return [ inst.farm.address, 0, "", data, eta ]
 }
 
 function routerMask(mask) {
