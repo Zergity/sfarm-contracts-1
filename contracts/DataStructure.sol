@@ -63,4 +63,18 @@ contract DataStructure {
     receive() external payable {
         revert("No thanks!");
     }
+
+    // forward the last call result to the caller, including revert reason
+    function _forwardCallResult(bool success) internal pure {
+        assembly {
+            let size := returndatasize()
+            // Copy the returned data.
+            returndatacopy(0, 0, size)
+
+            switch success
+            // delegatecall returns 0 on error.
+            case 0 { revert(0, size) }
+            default { return(0, size) }
+        }
+    }
 }

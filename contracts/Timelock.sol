@@ -51,7 +51,7 @@ contract Timelock is DataStructure {
         emit CancelTransaction(txHash, target, value, signature, data, eta);
     }
 
-    function executeTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public payable returns (bytes memory) {
+    function executeTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public payable {
         require(authorizedAdmins[msg.sender], "!admin");
 
         bytes32 txHash = keccak256(abi.encode(target, value, signature, data, eta));
@@ -70,12 +70,13 @@ contract Timelock is DataStructure {
         }
 
         // solium-disable-next-line security/no-call-value
-        (bool success, bytes memory returnData) = target.call.value(value)(callData);
-        require(success, "Timelock::executeTransaction: Transaction execution reverted.");
+        (bool success,) = target.call.value(value)(callData);
 
-        emit ExecuteTransaction(txHash, target, value, signature, data, eta);
+        if (success) {
+            emit ExecuteTransaction(txHash, target, value, signature, data, eta);
+        }
 
-        return returnData;
+        return _forwardCallResult(success);
     }
 
     function getBlockTimestamp() internal view returns (uint) {

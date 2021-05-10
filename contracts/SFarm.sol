@@ -303,18 +303,4 @@ contract SFarm is Timelock {
     function _isTokenStakable(address token) internal view returns (bool) {
         return authorizedTokens[token] >= TOKEN_LEVEL_STAKE;
     }
-
-    // forward the last call result to the caller, including revert reason
-    function _forwardCallResult(bool success) internal pure {
-        assembly {
-            let size := returndatasize()
-            // Copy the returned data.
-            returndatacopy(0, 0, size)
-
-            switch success
-            // delegatecall returns 0 on error.
-            case 0 { revert(0, size) }
-            default { return(0, size) }
-        }
-    }
 }
