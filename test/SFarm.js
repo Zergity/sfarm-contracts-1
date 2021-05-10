@@ -54,7 +54,7 @@ contract("SFarm", accounts => {
     expect(inst.base, 'contract not deployed: BUSD').to.not.be.null
     inst.earn = await ERC20.new('ezDeFi', 'ZD')
     expect(inst.earn, 'contract not deployed: ZD').to.not.be.null
-    inst.farm = await SFarm.new(inst.base.address, inst.earn.address, admin)
+    inst.farm = await SFarm.new(inst.base.address, inst.earn.address, admin, decShift(0.1, 18))
     expect(inst.farm, 'contract not deployed: SFarm').to.not.be.null
     for (let i = 0; i < accounts.length; ++i) {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)
@@ -734,7 +734,85 @@ contract("SFarm", accounts => {
         { from: farmer },
       )
     })
+  })
 
+  describe("harvest", () => {
+    it("harvest with active stake", async() => {
+      const ss = await snapshot.take()
+
+      await inst.coin[0].mint(accounts[5], decShift(100, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+
+      await inst.coin[1].mint(accounts[6], decShift(33, 18))
+      await inst.farm.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+
+      await time.increase(48*60*60)
+
+      const tx = await inst.farm.harvest(0, { from: accounts[5] })
+      const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
+      const expectedSubsidy = value.div(new BN(9))
+      expect(subsidy).is.bignumber
+        .at.most(expectedSubsidy, "harvest subsidy rate at most")
+        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+
+      await time.increase(24*60*60)
+
+      const tx1 = await inst.farm.harvest(13456789, { from: accounts[6] })
+      const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
+      const expectedSubsidy1 = value1.div(new BN(9))
+      expect(subsidy1).is.bignumber
+        .at.most(expectedSubsidy1, "harvest subsidy rate 1 at most")
+        .at.least(expectedSubsidy1.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate 1 at least")
+
+      const expectdValue1 = value.mul(new BN(66)).div(new BN(100))
+      expect(value1).is.bignumber
+        .at.most(expectdValue1.mul(new BN(102)).div(new BN(100)), "harvest value by double the stake time at most")
+        .at.least(expectdValue1.mul(new BN(98)).div(new BN(100)), "harvest value by double the stake time at least")
+
+      await snapshot.revert(ss)
+    })
+
+    it("harvest with stake withdrawn", async() => {
+      await inst.coin[0].mint(accounts[5], decShift(100, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+
+      await inst.coin[1].mint(accounts[6], decShift(33, 18))
+      await inst.farm.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+
+      await time.increase(48*60*60)
+      await inst.farm.withdraw(inst.coin[0].address, decShift(100, 18), [], { from: accounts[5] })
+      await time.increase(24*60*60)
+      await inst.farm.withdraw(inst.coin[1].address, decShift(33, 18), [], { from: accounts[6] })
+
+      await time.increase(13*60*60)
+
+      // randomly deposit some more for other account
+      await inst.coin[0].mint(accounts[0], decShift(13, 18))
+      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18), { from: accounts[0] })
+
+      await time.increase(60*60*60)
+
+      const tx = await inst.farm.harvest(0, { from: accounts[5] })
+      const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
+      const expectedSubsidy = value.div(new BN(9))
+      expect(subsidy).is.bignumber
+        .at.most(expectedSubsidy, "harvest subsidy rate at most")
+        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+
+      await time.increase(24*60*60)
+
+      const tx1 = await inst.farm.harvest(13456789, { from: accounts[6] })
+      const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
+      const expectedSubsidy1 = value1.div(new BN(9))
+      expect(subsidy1).is.bignumber
+        .at.most(expectedSubsidy1, "harvest subsidy rate 1 at most")
+        .at.least(expectedSubsidy1.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate 1 at least")
+
+      const expectdValue1 = value.mul(new BN(66)).div(new BN(100))
+      expect(value1).is.bignumber
+        .at.most(expectdValue1.mul(new BN(102)).div(new BN(100)), "harvest value by double the stake time at most")
+        .at.least(expectdValue1.mul(new BN(98)).div(new BN(100)), "harvest value by double the stake time at least")
+  })
   })
 })
 

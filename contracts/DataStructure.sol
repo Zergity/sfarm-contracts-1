@@ -18,6 +18,11 @@ contract DataStructure {
     address baseToken;  // any authorized token deposit in here is denominated to this token
     address earnToken;  // reward token (ZD)
 
+    uint64  subsidyRate;        // [0,1) with 18 decimals
+    address subsidyRecipient;
+
+    uint constant SUBSIDY_UNIT = 10**18;
+
     uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
 
     mapping(address => bool)                    authorizedAdmins;
@@ -26,6 +31,13 @@ contract DataStructure {
     mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
     mapping(address => uint)                    authorizedRouters;  // 1: earn token, 2: staked token
     mapping(address => mapping(bytes4 => uint)) authorizedWithdrawalFunc;
+
+    uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
+    uint constant TOKEN_LEVEL_STAKE         = 2;
+
+    uint constant ROUTER_EARN_TOKEN             = 1 << 0;
+    uint constant ROUTER_STAKE_TOKEN            = 1 << 1;
+    uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
     mapping(address => Stake)   stakes; // stake denominated in baseToken and t
     Stake total;
@@ -39,14 +51,7 @@ contract DataStructure {
 
     event Deposit(address indexed sender, address indexed token, uint value);
     event Withdraw(address indexed sender, address indexed token, uint value);
-    event Harvest(address indexed sender, uint value);
-
-    uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
-    uint constant TOKEN_LEVEL_STAKE         = 2;
-
-    uint constant ROUTER_EARN_TOKEN             = 1 << 0;
-    uint constant ROUTER_STAKE_TOKEN            = 1 << 1;
-    uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
+    event Harvest(address indexed sender, uint value, uint subsidy);
 
     /**
      * we don't do that here

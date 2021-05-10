@@ -19,23 +19,26 @@ contract SFarm is DataStructure {
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
 
-    constructor(address _baseToken, address _earnToken, address _admin) public {
+    constructor(address _baseToken, address _earnToken, address _admin, uint _subsidyRate) public {
         if (_admin == address(0x0)) {
             _admin = msg.sender;
         }
-        _initialize(_baseToken, _earnToken, _admin);
+        _initialize(_baseToken, _earnToken, _admin, _subsidyRate);
     }
 
     /// reserved for proxy contract
-    function initialize(address _baseToken, address _earnToken, address _admin) public {
+    function initialize(address _baseToken, address _earnToken, address _admin, uint _subsidyRate) public {
         require(msg.sender == address(this), "!internal");
-        _initialize(_baseToken, _earnToken, _admin);
+        _initialize(_baseToken, _earnToken, _admin, _subsidyRate);
     }
 
-    function _initialize(address _baseToken, address _earnToken, address _admin) internal {
+    function _initialize(address _baseToken, address _earnToken, address _admin, uint _subsidyRate) internal {
+        require(_subsidyRate < SUBSIDY_UNIT, "subsidyRate overflow");
         baseToken = _baseToken;
         earnToken = _earnToken;
         authorizedAdmins[_admin] = true;
+        subsidyRate = uint64(_subsidyRate);
+        subsidyRecipient = _admin;
     }
 
     function deposit(address token, uint amount) external {
@@ -124,11 +127,18 @@ contract SFarm is DataStructure {
         if (scale == 0) {
             scale = 1;
         }
-        earn = totalEarn > value ? value.mul(totalEarn/scale) : totalEarn.mul(value/scale);
-        earn = (earn/totalValue).mul(scale);
+        totalEarn = totalEarn > value ? value.mul(totalEarn/scale) : totalEarn.mul(value/scale);
+        uint bothEarn = (totalEarn/totalValue).mul(scale);    // first, assign the total earned
 
+        uint subsidyEarn = (totalEarn.mul(subsidyRate)/SUBSIDY_UNIT/totalValue).mul(scale);
+        if (subsidyEarn > 0 && subsidyRecipient != address(0x0)) {
+            IERC20(earnToken).transfer(subsidyRecipient, subsidyEarn);
+        }
+
+        earn = bothEarn.sub(subsidyEarn);
         IERC20(earnToken).transfer(msg.sender, earn);
-        emit Harvest(msg.sender, earn);
+
+        emit Harvest(msg.sender, earn, subsidyEarn);
     }
 
     function farmerExec(address receivingToken, address router, bytes calldata input) external {
@@ -184,6 +194,15 @@ contract SFarm is DataStructure {
             totalBalance = totalBalance.add(IERC20(token).balanceOf(address(this)));
         }
         require(total.stake() <= totalBalance, "over proccessed");
+    }
+
+    function setSubsidy(address recipient, uint rate) external {
+        require(authorizedAdmins[msg.sender], "!admin");
+        require(rate < SUBSIDY_UNIT, "subsidyRate overflow");
+        subsidyRate = uint64(rate);
+        if (recipient != address(0x0)) {
+            subsidyRecipient = recipient;
+        }
     }
 
     function approve(address[] calldata tokens, address[] calldata routers, uint amount) external {
