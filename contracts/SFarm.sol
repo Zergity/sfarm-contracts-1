@@ -19,6 +19,9 @@ contract SFarm is Timelock {
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
 
+    // admin operations require no locktime when the total stake in the farm not more than this value
+    uint constant LOCK_FREE_STAKE = 10000 * 10**18;
+
     constructor(
         address _baseToken,
         address _earnToken,
@@ -46,7 +49,11 @@ contract SFarm is Timelock {
     }
 
     modifier onlyAdmin {
-        require(msg.sender == address(this), "!timelock"); _;
+        if (msg.sender != address(this)) {
+            require(total.stake() <= LOCK_FREE_STAKE, "!timelock");
+            require(authorizedAdmins[msg.sender], "!admin");
+        }
+        _;
     }
 
     function deposit(address token, uint amount) external onlyStakeToken(token) {

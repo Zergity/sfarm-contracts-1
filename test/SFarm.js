@@ -119,7 +119,7 @@ contract("SFarm", accounts => {
   describe('setup', () => {
     it("authorize tokens for stake", async() => {
       await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
-      await adminExec('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+      await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE), { from: admin })
     })
 
     it("authorize tokens for receiving", async() => {
@@ -132,7 +132,7 @@ contract("SFarm", accounts => {
           }
         }
       }
-      await adminExec('authorizeTokens', pairs)
+      await inst.farm.authorizeTokens(pairs, { from: admin })
     })
 
     it("approve farm to spent all coins", async() => {
@@ -149,13 +149,14 @@ contract("SFarm", accounts => {
     })
 
     it("approve router to spent all farm's coins", async() => {
-      await expectRevert(adminExec('approve',
+      await expectRevert(inst.farm.approve(
         inst.coin.map(c => c.address),
         inst.router.map(r => r.address),
         LARGE_VALUE,
+        { from: admin }
       ), 'unauthorized router')
 
-      await adminExec("authorizeRouters", inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)))
+      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)), { from: admin })
 
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
@@ -164,15 +165,25 @@ contract("SFarm", accounts => {
         }
       }
 
-      await adminExec("approve",
+      await inst.farm.approve(
         coins,
         inst.router.map(r => r.address),
         LARGE_VALUE,
+        { from: admin }
       )
     })
   })
 
   describe('timelock', () => {
+    it("!admin without timelock", async() => {
+      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")
+    })
+
+    it("stake enough token to trigger timelock requirement", async() => {
+      await inst.coin[2].mint(accounts[2], decShift(10001, 18))
+      await inst.farm.deposit(inst.coin[2].address, decShift(10001, 18), { from: accounts[2] })
+    })
+
     it("!timelock", async() => {
       await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!timelock")
     })
