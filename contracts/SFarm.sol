@@ -287,6 +287,28 @@ contract SFarm is Timelock {
         }
     }
 
+    function query(address a) external view returns (
+        uint stake,
+        uint value
+    ) {
+        return (
+            stakes[a].stake(),
+            stakes[a].safeValue()
+        );
+    }
+
+    function queryGlobal() external view returns (
+        uint noStakeTokens,
+        uint totalStake,
+        uint totalValue
+    ) {
+        return (
+            stakeTokensCount,
+            total.stake(),
+            total.safeValue()
+        );
+    }
+
     function _funcSign(bytes memory input) internal pure returns (bytes4 output) {
         assembly {
             output := mload(add(input, 32))
