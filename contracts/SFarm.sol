@@ -288,23 +288,31 @@ contract SFarm is Timelock {
 
     function query(address a) external view returns (
         uint stake,
-        uint value
-    ) {
-        return (
-            stakes[a].stake(),
-            stakes[a].safeValue()
-        );
-    }
-
-    function queryGlobal() external view returns (
-        uint noStakeTokens,
+        uint value,
         uint totalStake,
         uint totalValue
     ) {
         return (
-            stakeTokensCount,
+            stakes[a].stake(),
+            stakes[a].safeValue(),
             total.stake(),
             total.safeValue()
+        );
+    }
+
+    function queryConfig() external view returns (
+        uint delay_,
+        address earnToken_,
+        uint subsidyRate_,
+        address subsidyRecipient_,
+        uint stakeTokensCount_
+    ) {
+        return (
+            delay,
+            earnToken,
+            uint(subsidyRate),
+            subsidyRecipient,
+            stakeTokensCount
         );
     }
 
