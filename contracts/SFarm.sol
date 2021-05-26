@@ -23,7 +23,6 @@ contract SFarm is Timelock {
     uint constant LOCK_FREE_STAKE = 10000 * 10**18;
 
     constructor(
-        address _baseToken,
         address _earnToken,
         address _admin,
         uint _subsidyRate,
@@ -36,7 +35,6 @@ contract SFarm is Timelock {
         }
         subsidyRecipient = _admin;
         authorizedAdmins[_admin] = true;
-        baseToken = _baseToken;
         earnToken = _earnToken;
     }
 

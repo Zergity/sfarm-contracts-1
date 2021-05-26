@@ -19,7 +19,6 @@ contract DataStructure {
     uint public delay;
     mapping (bytes32 => bool) public queuedTransactions;
 
-    address baseToken;  // any authorized token deposit in here is denominated to this token
     address earnToken;  // reward token (ZD)
 
     uint64  subsidyRate;        // [0,1) with 18 decimals
@@ -43,7 +42,7 @@ contract DataStructure {
     uint constant ROUTER_STAKE_TOKEN            = 1 << 1;
     uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
-    mapping(address => Stake)   stakes; // stake denominated in baseToken and t
+    mapping(address => Stake)   stakes;
     Stake total;
     using StakeLib for Stake;
 
