@@ -1,3 +1,6 @@
 node_modules
 build
 yarn-error.log
+
+# dotenv environment variables file
+.env

@@ -1,11 +1,15 @@
+require('dotenv').config() 
 const SFarm = artifacts.require('./SFarm.sol');
+const { decShift } = require('../tools/lib/big');
 
-let BASE_TOKEN = '0xe9e7cea3dedca5984780bafc599bd69add087d56' // BUSD
-let EARN_TOKEN = '0x1c213179c2c08906fb759878860652a61727ed14' // ZD
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 module.exports = async function(deployer) {
     if (deployer.network === 'local') {
         return
     }
-    await deployer.deploy(SFarm, BASE_TOKEN, EARN_TOKEN)
+    if (!process.env.EARN_TOKEN) {
+        throw "missing env: EARN_TOKEN"
+    }
+    await deployer.deploy(SFarm, process.env.EARN_TOKEN, ZERO_ADDRESS, decShift(0.1, 18), 7*24*60*60)
 }

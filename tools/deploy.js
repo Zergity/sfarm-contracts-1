@@ -45,8 +45,7 @@ module.exports = async function(callback) {
     const farmer = accounts[2]
     const admin = accounts[1]
 
-      // should our contracts be deployed
-    inst.base = await ERC20.new('Base USD', 'BUSD')
+    // should our contracts be deployed
     inst.earn = await ERC20.new('ezDeFi', 'ZD')
     inst.farm = await SFarm.new(inst.base.address, inst.earn.address, admin, decShift(0.1, 18), 7*24*60*60)
     for (let i = 0; i < accounts.length; ++i) {
@@ -150,6 +149,13 @@ module.exports = async function(callback) {
     console.error('base token', inst.base.address)
     console.error('earn token', inst.earn.address)
     console.error('farm', inst.farm.address)
+
+    // mint some coins
+    for (const coin of inst.coin) {
+      for (const acc of accounts) {
+        await coin.mint(acc, decShift(Math.random(), 24))
+      }
+    }
 
     return callback()
   }
