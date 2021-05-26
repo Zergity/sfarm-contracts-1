@@ -36,6 +36,7 @@ contract SFarm is Timelock {
         subsidyRecipient = _admin;
         authorizedAdmins[_admin] = true;
         earnToken = _earnToken;
+        emit AuthorizeAdmin(_admin, true);
     }
 
     modifier onlyStakeToken(address token) {
