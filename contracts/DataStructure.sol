@@ -56,13 +56,6 @@ contract DataStructure {
     event Withdraw(address indexed sender, address indexed token, uint value);
     event Harvest(address indexed sender, uint value, uint subsidy);
 
-    /**
-     * we don't do that here
-     */
-    receive() external payable {
-        revert("No thanks!");
-    }
-
     // forward the last call result to the caller, including revert reason
     function _forwardCallResult(bool success) internal pure {
         assembly {
