@@ -56,8 +56,11 @@ module.exports = async function(callback) {
 
     /// setup ///
 
+    const DAI = '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3'
+
     // authorize tokens for stake
     // await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
+    // await inst.farm.authorizeTokens([DAI + TOKEN_LEVEL_STAKE])
 
     // approve router to spent all farm's coins
     // await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)))
@@ -67,6 +70,39 @@ module.exports = async function(callback) {
     // await inst.farm.authorizeAdmins([
     //   KNIGHT + '1'.padStart(24, '0')
     // ])
+
+    // approve the pancake router to spend BUSD
+    // await inst.farm.approve(
+    //   inst.coin.map(c => c.address),
+    //   inst.router.map(r => r.address),
+    //   LARGE_VALUE,
+    // )
+
+    const LP_TOKEN='0x66fdb2eccfb58cf098eaa419e5efde841368e489' // LP_BUSD_DAI
+    const PC_FARM='0x73feaa1eE314F8c655E354234017bE2193C9E24E'
+
+    // approve pancake farm
+    // console.error(
+    //   await inst.farm.authorizeRouters([PC_FARM].map(r => r + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED)))
+    // )
+
+    // approve the pancake farm to spend LP_DAI_BUSD
+    // console.error(await inst.farm.approve(
+    //   [ LP_TOKEN ],
+    //   [ PC_FARM ],
+    //   LARGE_VALUE,
+    // ))
+
+    const PC_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E'
+    const FN_WITHDRAW = '441a3e70'
+    const FN_REMOVE_LIQUIDITY = 'baa2abde'
+
+    // console.error(
+    //   await inst.farm.authorizeWithdrawalFuncs.call([
+    //     PC_ROUTER + FN_REMOVE_LIQUIDITY + routerWithdrawalMask(ROUTER_STAKE_TOKEN),
+    //     PC_FARM + FN_WITHDRAW + routerWithdrawalMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED),
+    //   ])
+    // )
 
     return callback()
   }
