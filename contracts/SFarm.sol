@@ -91,7 +91,7 @@ contract SFarm is Timelock {
             }
 
             for (uint j = 0; j < rls[i].execs.length; ++j) {
-                address router = rls[i].execs[i].router;
+                address router = rls[i].execs[j].router;
 
                 uint mask = authorizedWithdrawalFunc[router][_funcSign(rls[i].execs[j].input)];
                 require(_isRouterForStakeToken(mask), "unauthorized router.function");
