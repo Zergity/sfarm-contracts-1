@@ -94,7 +94,7 @@ contract SFarm is Timelock {
                 address router = rls[i].execs[j].router;
 
                 uint mask = authorizedWithdrawalFunc[router][_funcSign(rls[i].execs[j].input)];
-                require(_isRouterForStakeToken(mask), "unauthorized router.function");
+                require(_isRouterForFarmToken(mask), "unauthorized router.function");
                 if (receivingToken == address(0x0)) {
                     require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");
                 }
@@ -155,7 +155,7 @@ contract SFarm is Timelock {
 
     function farmerExec(address receivingToken, address router, bytes calldata input) external onlyFarmer {
         uint mask = authorizedRouters[router];
-        require(_isRouterForStakeToken(mask), "unauthorized router");
+        require(_isRouterForFarmToken(mask), "unauthorized router");
 
         // skip the balance check for router that always use msg.sender instead of `recipient` field (unlike Uniswap)
         if (receivingToken == address(0x0)) {
@@ -245,7 +245,7 @@ contract SFarm is Timelock {
     }
 
     function authorizeRouters(bytes32[] calldata changes) external onlyAdmin {
-        uint ROUTER_MASK = ROUTER_EARN_TOKEN + ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
+        uint ROUTER_MASK = ROUTER_EARN_TOKEN + ROUTER_FARM_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
             require(router != address(this), "nice try");
@@ -274,7 +274,7 @@ contract SFarm is Timelock {
 
     // 20 bytes router address + 4 bytes func signature + 8 bytes bool
     function authorizeWithdrawalFuncs(bytes32[] calldata changes) external onlyAdmin {
-        uint ROUTER_MASK = ROUTER_STAKE_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
+        uint ROUTER_MASK = ROUTER_FARM_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
         for (uint i; i < changes.length; ++i) {
             address router = address(bytes20(changes[i]));
             require(router != address(this), "nice try");
@@ -326,8 +326,8 @@ contract SFarm is Timelock {
         return mask & ROUTER_EARN_TOKEN != 0;
     }
 
-    function _isRouterForStakeToken(uint mask) internal pure returns (bool) {
-        return mask & ROUTER_STAKE_TOKEN != 0;
+    function _isRouterForFarmToken(uint mask) internal pure returns (bool) {
+        return mask & ROUTER_FARM_TOKEN != 0;
     }
 
     function _isRouterPreserveOwnership(uint mask) internal pure returns (bool) {

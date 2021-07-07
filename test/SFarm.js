@@ -17,7 +17,7 @@ const TOKEN_LEVEL_STAKE         = '2'.padStart(24,'0');
 
 const ROUTER_NONE                   = 0;
 const ROUTER_EARN_TOKEN             = 1 << 0;
-const ROUTER_STAKE_TOKEN            = 1 << 1;
+const ROUTER_FARM_TOKEN             = 1 << 1;
 const ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
@@ -154,7 +154,7 @@ contract("SFarm", accounts => {
         { from: admin }
       ), 'unauthorized router')
 
-      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)), { from: admin })
+      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_FARM_TOKEN)), { from: admin })
 
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
@@ -220,7 +220,7 @@ contract("SFarm", accounts => {
       await adminExec("authorizeFarmers", [ farmer + '1'.padStart(24,'0') ])
 
       await expectRevert(adminExec("authorizeRouters",
-        [ inst.farm.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+        [ inst.farm.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
       ), "nice try")
 
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
@@ -248,7 +248,7 @@ contract("SFarm", accounts => {
       const funcSign = strip0x(input).substr(0, 8)
 
       await expectRevert(adminExec("authorizeWithdrawalFuncs",
-        [ inst.farm.address + funcSign + routerWithdrawalMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+        [ inst.farm.address + funcSign + routerWithdrawalMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
       ), "nice try")
 
       await expectRevert(inst.farm.withdraw(inst.coin[0].address, amount, [{
@@ -500,7 +500,7 @@ contract("SFarm", accounts => {
       ), "not authorized as ownership preserved")
 
       // authorize the router to farmerExec without balance verification
-      await adminExec("authorizeRouters", [ inst.router[0].address + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ])
+      await adminExec("authorizeRouters", [ inst.router[0].address + routerMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ])
 
       await inst.farm.farmerExec(
         ZERO_ADDRESS,
@@ -614,7 +614,7 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity
       await adminExec("authorizeWithdrawalFuncs",
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN)),
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_FARM_TOKEN)),
       )
 
       await adminExec("authorizeWithdrawalFuncs",
@@ -638,7 +638,7 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity again
       await adminExec("authorizeWithdrawalFuncs",
-        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN)),
+        inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_FARM_TOKEN)),
       )
     })
 
@@ -663,7 +663,7 @@ contract("SFarm", accounts => {
 
       // authorize inst.router[0].removeLiquidity as ownership preserved
       await adminExec("authorizeWithdrawalFuncs",
-        [ inst.router[0].address + 'baa2abde' + routerWithdrawalMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ],
+        [ inst.router[0].address + 'baa2abde' + routerWithdrawalMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ],
       )
 
       await inst.farm.withdraw(inst.coin[3].address, b3, [
@@ -770,7 +770,7 @@ contract("SFarm", accounts => {
       ), "unauthorized")
 
       // authorize the router to swap to earn token
-      await adminExec("authorizeRouters", inst.router.map(r => r.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_STAKE_TOKEN)))
+      await adminExec("authorizeRouters", inst.router.map(r => r.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN)))
     })
 
     // due to slippages, total balance might be != total stake

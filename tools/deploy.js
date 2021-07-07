@@ -11,7 +11,7 @@ const TOKEN_LEVEL_STAKE         = '2'.padStart(24,'0');
 
 const ROUTER_NONE                   = 0;
 const ROUTER_EARN_TOKEN             = 1 << 0;
-const ROUTER_STAKE_TOKEN            = 1 << 1;
+const ROUTER_FARM_TOKEN             = 1 << 1;
 const ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
@@ -130,7 +130,7 @@ module.exports = async function(callback) {
     }
 
     // approve router to spent all farm's coins
-    await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)), { from: admin })
+    await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_FARM_TOKEN)), { from: admin })
 
     const coins = inst.coin.map(c => c.address)
     for (let i = 0; i < inst.coin.length-1; ++i) {

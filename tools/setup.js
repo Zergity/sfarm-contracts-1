@@ -12,7 +12,7 @@ const TOKEN_LEVEL_STAKE         = '2'.padStart(24,'0');
 
 const ROUTER_NONE                   = 0;
 const ROUTER_EARN_TOKEN             = 1 << 0;
-const ROUTER_STAKE_TOKEN            = 1 << 1;
+const ROUTER_FARM_TOKEN             = 1 << 1;
 const ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
@@ -63,7 +63,7 @@ module.exports = async function(callback) {
     // await inst.farm.authorizeTokens([DAI + TOKEN_LEVEL_STAKE])
 
     // approve router to spent all farm's coins
-    // await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_STAKE_TOKEN)))
+    // await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_FARM_TOKEN)))
 
     // set the admin account
     // const KNIGHT = '0x9F1D693102374EF349b7dD0e969c03BeB0314458'
@@ -83,7 +83,7 @@ module.exports = async function(callback) {
 
     // approve pancake farm
     // console.error(
-    //   await inst.farm.authorizeRouters([PC_FARM].map(r => r + routerMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED)))
+    //   await inst.farm.authorizeRouters([PC_FARM].map(r => r + routerMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED)))
     // )
 
     // approve the pancake farm to spend LP_DAI_BUSD
@@ -99,8 +99,8 @@ module.exports = async function(callback) {
 
     // console.error(
     //   await inst.farm.authorizeWithdrawalFuncs.call([
-    //     PC_ROUTER + FN_REMOVE_LIQUIDITY + routerWithdrawalMask(ROUTER_STAKE_TOKEN),
-    //     PC_FARM + FN_WITHDRAW + routerWithdrawalMask(ROUTER_STAKE_TOKEN | ROUTER_OWNERSHIP_PRESERVED),
+    //     PC_ROUTER + FN_REMOVE_LIQUIDITY + routerWithdrawalMask(ROUTER_FARM_TOKEN),
+    //     PC_FARM + FN_WITHDRAW + routerWithdrawalMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED),
     //   ])
     // )
 
