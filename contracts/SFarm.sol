@@ -157,6 +157,8 @@ contract SFarm is Timelock {
         uint mask = authorizedRouters[router];
         require(_isRouterForFarmToken(mask), "unauthorized router");
 
+        emit FarmerExec(receivingToken, router, _funcSign(input));
+
         // skip the balance check for router that always use msg.sender instead of `recipient` field (unlike Uniswap)
         if (receivingToken == address(0x0)) {
             require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");

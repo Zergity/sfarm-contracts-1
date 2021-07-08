@@ -56,6 +56,8 @@ contract DataStructure {
     event Withdraw(address indexed sender, address indexed token, uint value);
     event Harvest(address indexed sender, uint value, uint subsidy);
 
+    event FarmerExec(address indexed receivingToken, address indexed router, bytes4 indexed func);
+
     // forward the last call result to the caller, including revert reason
     function _forwardCallResult(bool success) internal pure {
         assembly {
