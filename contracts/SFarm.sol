@@ -19,9 +19,6 @@ contract SFarm is Timelock {
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
 
-    // admin operations require no locktime when the total stake in the farm not more than this value
-    uint constant LOCK_FREE_STAKE = 10000 * 10**18;
-
     constructor(
         address _earnToken,
         address _admin,
@@ -47,18 +44,9 @@ contract SFarm is Timelock {
         require(authorizedFarmers[msg.sender], "unauthorized farmer"); _;
     }
 
-    modifier onlyAdmin {
-        if (msg.sender != address(this)) {
-            require(total.stake() <= LOCK_FREE_STAKE, "!timelock");
-            require(authorizedAdmins[msg.sender], "!admin");
-        }
-        _;
-    }
-
     function deposit(address token, uint amount) external onlyStakeToken(token) {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
-        total = total.deposit(amount);
-        stakes[msg.sender] = stakes[msg.sender].deposit(amount);
+        _mint(msg.sender, amount);
         emit Deposit(msg.sender, token, amount);
     }
 
@@ -77,8 +65,7 @@ contract SFarm is Timelock {
         uint        amount,
         paramRL[]   calldata rls
     ) external onlyStakeToken(token) {
-        stakes[msg.sender] = stakes[msg.sender].withdraw(amount);
-        total = total.withdraw(amount);
+        _burn(msg.sender, amount);
 
         uint[] memory lastBalance = new uint[](rls.length);
 

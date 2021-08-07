@@ -13,7 +13,7 @@ import "./lib/StakeLib.sol";
  */
 contract DataStructure {
     // Upgradable Contract Proxy //
-    // mapping(bytes4 => address) impls;   // function signature => implementation contract address
+    mapping(bytes4 => address) impls;   // function signature => implementation contract address
 
     // Admin TimeLock
     uint public delay;
@@ -57,6 +57,35 @@ contract DataStructure {
     event Harvest(address indexed sender, uint value, uint subsidy);
 
     event FarmerExec(address indexed receivingToken, address indexed router, bytes4 indexed func);
+
+    // admin operations require no locktime when the total stake in the farm not more than this value
+    uint constant LOCK_FREE_STAKE = 10000 * 10**18;
+
+    modifier onlyAdmin {
+        if (msg.sender != address(this)) {
+            require(total.stake() <= LOCK_FREE_STAKE, "!timelock");
+            require(authorizedAdmins[msg.sender], "!admin");
+        }
+        _;
+    }
+
+    function _mint(address account, uint amount) internal {
+        total = total.deposit(amount);
+        stakes[account] = stakes[account].deposit(amount);
+    }
+
+    function _burn(address account, uint amount) internal {
+        stakes[account] = stakes[account].withdraw(amount);
+        total = total.withdraw(amount);
+    }
+
+    function _balanceOf(address account) internal view returns (uint) {
+        return stakes[account].stake();
+    }
+
+    function _totalSupply() internal view returns (uint) {
+        return total.stake();
+    }
 
     // forward the last call result to the caller, including revert reason
     function _forwardCallResult(bool success) internal pure {

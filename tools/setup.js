@@ -97,12 +97,12 @@ module.exports = async function(callback) {
     const FN_WITHDRAW = '441a3e70'
     const FN_REMOVE_LIQUIDITY = 'baa2abde'
 
-    // console.error(
-    //   await inst.farm.authorizeWithdrawalFuncs.call([
-    //     PC_ROUTER + FN_REMOVE_LIQUIDITY + routerWithdrawalMask(ROUTER_FARM_TOKEN),
-    //     PC_FARM + FN_WITHDRAW + routerWithdrawalMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED),
-    //   ])
-    // )
+    console.error(
+      await inst.farm.authorizeWithdrawalFuncs.call([
+        PC_ROUTER + FN_REMOVE_LIQUIDITY + routerWithdrawalMask(ROUTER_FARM_TOKEN),
+        PC_FARM + FN_WITHDRAW + routerWithdrawalMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED),
+      ])
+    )
 
     return callback()
   }
