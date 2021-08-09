@@ -46,6 +46,8 @@ contract DataStructure {
     Stake total;
     using StakeLib for Stake;
 
+    mapping (address => mapping (address => uint256)) _allowances;
+
     event AuthorizeAdmin(address indexed admin, bool enable);
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
@@ -62,10 +64,7 @@ contract DataStructure {
     uint constant LOCK_FREE_STAKE = 10000 * 10**18;
 
     modifier onlyAdmin {
-        if (msg.sender != address(this)) {
-            require(total.stake() <= LOCK_FREE_STAKE, "!timelock");
-            require(authorizedAdmins[msg.sender], "!admin");
-        }
+        require(authorizedAdmins[msg.sender], "!admin");
         _;
     }
 

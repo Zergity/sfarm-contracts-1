@@ -8,46 +8,29 @@ pragma solidity >=0.6.2;
 
 import "./Token.sol";
 import "./DataStructure.sol";
+import "./interfaces/Upgradable.sol";
 
 /**
- * Proxy is an ERC20 and an Upgradable Proxy with 3 implementation contracts: PoR, BrandMarket and RefNetwork
+ * Proxy is an ERC20 and an Upgradable Proxy
  *
  * @dev proxy class can't have any (structured) state variable, all state is located in DataStructure and Token
  */
-contract Proxy is DataStructure, Token {
-    /**
-     * @dev Emitted when the implementation is changed.
-     * @param signature 4-bytes function signature.
-     * @param implementation Address of the new implementation.
-     */
-    event Implementation(bytes32 indexed signature, address indexed implementation);
+contract Proxy is DataStructure {
+    event Deployed(address indexed addr, bytes4[] funcs);
+    event Destructed(address indexed addr);
 
     constructor(
-        // address implERC20,
-        address implBrandMarket,
-        address implRefNetwork,
-        address implPoR
+        address _admin
     ) public {
-        // delegate call initialize() for each implementations
-        mustDelegateCall(implBrandMarket, hex"8129fc1c");
+        if (_admin == address(0x0)) {
+            _admin = msg.sender;
+        }
 
-        // All ERC20 functions are not upgradable
-
-        // generator script: change the contract name in export part
-        // (export CONTRACT=PoR; cat ./build/contracts/$CONTRACT.json | sed -ne '/"legacyAST": {/,$p' | grep -A7 functionSelector | grep 'functionSelector\|"name": "' | sed 's/[",]//g' | sed 's/.*: //g' | sed 'N;s/\n/ /' | awk '{print "impls[0x"$0}' | sed "s/ /] = impl$CONTRACT;\t\/\/ /g")
-        impls[0x0af77eb1] = implBrandMarket;    // activate
-        impls[0x22eee84c] = implBrandMarket;    // deactivate
-        impls[0x56cb121d] = implBrandMarket;    // queryCampaign
-        impls[0xcfb083c0] = implPoR;    // claim
-        impls[0xf4b0bafa] = implPoR;    // submit
-        impls[0x7a0ca1e2] = implRefNetwork;     // attach
-        impls[0xe5d9c0ad] = implRefNetwork;     // update
-        impls[0xd4fc9fc6] = implRefNetwork;     // query
-        impls[0xdffb35bb] = implRefNetwork;     // setCutbackRate
-        impls[0x11d2eb02] = implRefNetwork;     // reward
+        authorizedAdmins[_admin] = true;
+        emit AuthorizeAdmin(_admin, true);
     }
 
-    function mustDelegateCall(address impl, bytes memory data) internal {
+    function _mustDelegateCall(address impl, bytes memory data) internal {
         (bool ok,) = impl.delegatecall(data);
         if (!ok) {
             assembly {
@@ -58,46 +41,29 @@ contract Proxy is DataStructure, Token {
         }
     }
 
-    /**
-     * Extra function to attach a message to a transfer
-     *
-     * Requirements:
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
-    function transfer(address recipient, uint256 amount, bytes calldata) external returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
-        return true;
-    }
-
-    /**
-     * set the implementation contract for a single function signature.
-     */
-    function setImplementation(bytes32 sign, address impl) external onlyAdmin {
-        // TODO: verify impl is a contract
-        _setImplementation(sign, impl);
-    }
-
-    /**
-     * set implementation contract for multiple function signatures,
-     * packed in the signs from the left.
-     */
-    function setImplementations(bytes32 signs, address impl) external onlyAdmin {
-        // TODO: verify impl is a contract
-        bytes32 ss = signs;
-        for (uint i = 0; i < 8; ++i) {
-            bytes4 sign = bytes4(ss);
-            if (sign == 0) {
-                return;
-            }
-            _setImplementation(sign, impl);
-            ss <<= 32;
+    function upgradeContract(bytes memory code, uint salt, bytes memory initFunc) public onlyAdmin {
+        address addr;
+        assembly {
+            addr := create2(0, add(code, 0x20), mload(code), salt)
         }
-    }
+        require(_isContract(addr), "unable to deploy contract");
 
-    function _setImplementation(bytes32 sign, address impl) internal {
-        impls[bytes4(sign)] = impl;
-        emit Implementation(sign, impl);
+        // delegate call init for each implementations
+        if (initFunc.length > 0) {
+            _mustDelegateCall(addr, initFunc);
+        }
+
+        bytes4[] memory funcs = Upgradable(addr).funcSelectors();
+        for (uint i = 0; i < funcs.length; ++i) {
+            bytes4 sign = funcs[i];
+            address prev = impls[sign];
+            impls[sign] = addr;
+            if (_isOrphan(prev)) {
+                Upgradable(prev).destruct();
+                emit Destructed(prev);
+            }
+        }
+        emit Deployed(addr, funcs);
     }
 
     /**
@@ -151,5 +117,58 @@ contract Proxy is DataStructure, Token {
             case 0 { revert(0, size) }
             default { return(0, size) }
         }
+    }
+
+    function _isContract(address _addr) private view returns (bool isContract) {
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
+    }
+
+    function _isOrphan(address addr) private view returns (bool) {
+        bytes4[] memory funcs = Upgradable(addr).funcSelectors();
+        for (uint i = 0; i < funcs.length; ++i) {
+            bytes4 sign = funcs[i];
+            if (impls[sign] == addr) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // un-upgradable functions here
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public pure returns (string memory) {
+        return "LaunchZone USD";
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public pure returns (string memory) {
+        return "USDZ";
+    }
+
+    /**
+     * @dev Returns the number of decimals used to get its user representation.
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5,05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
+     * called.
+     *
+     * NOTE: This information is only used for _display_ purposes: it in
+     * no way affects any of the arithmetic of the contract, including
+     * {IERC20-balanceOf} and {IERC20-transfer}.
+     */
+    function decimals() public pure returns (uint8) {
+        return 18;
     }
 }

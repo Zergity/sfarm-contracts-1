@@ -5,6 +5,7 @@ pragma solidity ^0.6.0;
 import "@openzeppelin/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./interfaces/IERC20.sol";
+import "./interfaces/Upgradable.sol";
 import "./lib/SafeMath.sol";
 import "./DataStructure.sol";
 
@@ -32,11 +33,9 @@ import "./DataStructure.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract Token is Context, IERC20, DataStructure {
+contract Token is Upgradable, Context, IERC20, DataStructure {
     using SafeMath for uint256;
     using Address for address;
-
-    mapping (address => mapping (address => uint256)) private _allowances;
 
     /**
      * @dev setting allowance to this value to skip an SSTORE in transferFrom
@@ -45,17 +44,21 @@ contract Token is Context, IERC20, DataStructure {
 
     /**
      * @dev Returns the name of the token.
+     *
+     * use Proxy's function instead
      */
     function name() public view override returns (string memory) {
-        return "SFarm";
+        revert("use Proxy's instead");
     }
 
     /**
      * @dev Returns the symbol of the token, usually a shorter version of the
      * name.
+     *
+     * use Proxy's function instead
      */
     function symbol() public view override returns (string memory) {
-        return "USDZ";
+        revert("use Proxy's instead");
     }
 
     /**
@@ -70,9 +73,11 @@ contract Token is Context, IERC20, DataStructure {
      * NOTE: This information is only used for _display_ purposes: it in
      * no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
+     *
+     * use Proxy's function instead
      */
     function decimals() public view override returns (uint8) {
-        return 18;
+        revert("use Proxy's instead");
     }
 
     /**
@@ -219,5 +224,18 @@ contract Token is Context, IERC20, DataStructure {
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
+    }
+
+    // DO NOT EDIT: auto-generated function
+    function funcSelectors() external view override returns (bytes4[] memory signs) {
+        signs = new bytes4[](8);
+        signs[0] = 0x18160ddd;		// totalSupply()
+        signs[1] = 0x70a08231;		// balanceOf(address)
+        signs[2] = 0xa9059cbb;		// transfer(address,uint256)
+        signs[3] = 0xdd62ed3e;		// allowance(address,address)
+        signs[4] = 0x095ea7b3;		// approve(address,uint256)
+        signs[5] = 0x23b872dd;		// transferFrom(address,address,uint256)
+        signs[6] = 0x39509351;		// increaseAllowance(address,uint256)
+        signs[7] = 0xa457c2d7;		// decreaseAllowance(address,uint256)
     }
 }
