@@ -12,7 +12,7 @@ import './interfaces/IUniswapV2Router01.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/Upgradable.sol';
 
-contract SFarm is DataStructure, Upgradable {
+contract SFarm is Upgradable, DataStructure {
     using SafeMath for uint;
     using SafeMath for uint192;
     using SafeMath for uint64;
@@ -20,15 +20,14 @@ contract SFarm is DataStructure, Upgradable {
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
 
+    // delegated called by Proxy
     function initialize(
         address _earnToken,
         address _subsidyRecipient,
         uint _subsidyRate
-    ) external {
-        require(_subsidyRate < SUBSIDY_UNIT, "subsidyRate overflow");
-        subsidyRate = uint64(_subsidyRate);
-        subsidyRecipient = _subsidyRecipient;
+    ) external onlyAdmin {
         earnToken = _earnToken;
+        setSubsidy(_subsidyRecipient, _subsidyRate);
     }
 
     modifier onlyStakeToken(address token) {
@@ -197,12 +196,13 @@ contract SFarm is DataStructure, Upgradable {
         require(total.stake() <= totalBalance, "over proccessed");
     }
 
-    function setSubsidy(address recipient, uint rate) external timelocked {
+    function setSubsidy(address recipient, uint rate) public timelocked {
         require(rate < SUBSIDY_UNIT, "subsidyRate overflow");
         subsidyRate = uint64(rate);
         if (recipient != address(0x0)) {
             subsidyRecipient = recipient;
         }
+        emit NewSubsidy(subsidyRecipient, subsidyRate);
     }
 
     function approve(address[] calldata tokens, address[] calldata routers, uint amount) external timelocked {

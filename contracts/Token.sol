@@ -33,7 +33,7 @@ import "./DataStructure.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract Token is Upgradable, Context, IERC20, DataStructure {
+contract Token is Context, IERC20, Upgradable, DataStructure {
     using SafeMath for uint256;
     using Address for address;
 

@@ -9,6 +9,16 @@ abstract contract Upgradable {
     /// only to be delegatedCall by deployer contract
     // function initialize() external;
 
+    modifier onlyCreator {
+        bytes32 position = creatorPosition;
+        address payable creator;
+        assembly {
+            creator := sload(position)
+        }
+        require(msg.sender == creator, "!creator");
+        _;
+    }
+
     bytes32 private constant creatorPosition = keccak256("contract.proxy.address"); 
 
     constructor() public {
@@ -20,14 +30,8 @@ abstract contract Upgradable {
     }
 
     // only to be called by its deployer contract (msg.sender in constructor)
-    function destruct() external {
-        bytes32 position = creatorPosition;
-        address payable creator;
-        assembly {
-            creator := sload(position)
-        }
-        require(msg.sender == creator, "!proxy");
-        selfdestruct(creator);
+    function destruct() external onlyCreator {
+        selfdestruct(msg.sender);
     }
 
     function funcSelectors() external virtual view returns (bytes4[] memory);

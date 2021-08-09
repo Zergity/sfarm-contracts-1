@@ -54,16 +54,17 @@ contract Proxy is DataStructure {
         }
 
         bytes4[] memory funcs = Upgradable(addr).funcSelectors();
+        emit Deployed(addr, funcs);
+
         for (uint i = 0; i < funcs.length; ++i) {
-            bytes4 sign = funcs[i];
-            address prev = impls[sign];
-            impls[sign] = addr;
-            if (_isOrphan(prev)) {
+            bytes4 func = funcs[i];
+            address prev = impls[func];
+            impls[func] = addr;
+            if (prev != address(0x0) && _isOrphan(prev)) {
                 Upgradable(prev).destruct();
                 emit Destructed(prev);
             }
         }
-        emit Deployed(addr, funcs);
     }
 
     /**
@@ -130,8 +131,8 @@ contract Proxy is DataStructure {
     function _isOrphan(address addr) private view returns (bool) {
         bytes4[] memory funcs = Upgradable(addr).funcSelectors();
         for (uint i = 0; i < funcs.length; ++i) {
-            bytes4 sign = funcs[i];
-            if (impls[sign] == addr) {
+            bytes4 func = funcs[i];
+            if (impls[func] == addr) {
                 return false;
             }
         }

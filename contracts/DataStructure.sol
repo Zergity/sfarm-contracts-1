@@ -15,10 +15,22 @@ contract DataStructure {
     // Upgradable Contract Proxy //
     mapping(bytes4 => address) impls;   // function signature => implementation contract address
 
-    // Admin TimeLock
+    // TimeLock
     uint public delay;
     mapping (bytes32 => bool) public queuedTransactions;
 
+    event NewDelay(uint indexed newDelay);
+    event CancelTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature,  bytes data, uint eta);
+    event ExecuteTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature,  bytes data, uint eta);
+    event QueueTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature, bytes data, uint eta);
+
+    // Token
+    mapping (address => mapping (address => uint256)) _allowances;
+
+    event Approval(address indexed owner, address indexed spender, uint value);
+    event Transfer(address indexed from, address indexed to, uint value);
+
+    // SFarm
     address earnToken;  // reward token (ZD)
 
     uint64  subsidyRate;        // [0,1) with 18 decimals
@@ -46,7 +58,7 @@ contract DataStructure {
     Stake total;
     using StakeLib for Stake;
 
-    mapping (address => mapping (address => uint256)) _allowances;
+    event NewSubsidy(address recipient, uint rate);
 
     event AuthorizeAdmin(address indexed admin, bool enable);
     event AuthorizeFarmer(address indexed farmer, bool enable);
