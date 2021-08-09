@@ -16,8 +16,7 @@ import "./interfaces/Upgradable.sol";
  * @dev proxy class can't have any (structured) state variable, all state is located in DataStructure and Token
  */
 contract Proxy is DataStructure {
-    event Deployed(address indexed addr, bytes4[] funcs);
-    event Destructed(address indexed addr);
+    event Deployed(address indexed addr, bytes initCode, bytes4[] funcs);
 
     constructor(
         address _admin
@@ -41,30 +40,19 @@ contract Proxy is DataStructure {
         }
     }
 
-    function upgradeContract(bytes memory code, uint salt, bytes memory initFunc) public onlyAdmin {
-        address addr;
-        assembly {
-            addr := create2(0, add(code, 0x20), mload(code), salt)
-        }
-        require(_isContract(addr), "unable to deploy contract");
+    function upgradeContract(address addr, bytes calldata initCode) external onlyAdmin {
+        require(_isContract(addr), "!contract");
 
         // delegate call init for each implementations
-        if (initFunc.length > 0) {
-            _mustDelegateCall(addr, initFunc);
+        if (initCode.length > 0) {
+            _mustDelegateCall(addr, initCode);
         }
 
         bytes4[] memory funcs = Upgradable(addr).funcSelectors();
-        emit Deployed(addr, funcs);
-
         for (uint i = 0; i < funcs.length; ++i) {
-            bytes4 func = funcs[i];
-            address prev = impls[func];
-            impls[func] = addr;
-            if (prev != address(0x0) && _isOrphan(prev)) {
-                Upgradable(prev).destruct();
-                emit Destructed(prev);
-            }
+            impls[funcs[i]] = addr;
         }
+        emit Deployed(addr, initCode, funcs);
     }
 
     /**
