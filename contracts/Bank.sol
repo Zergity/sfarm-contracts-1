@@ -7,28 +7,16 @@ pragma experimental ABIEncoderV2;
 
 // solium-disable security/no-inline-assembly
 
-import "./Timelock.sol";
+import "./DataStructure.sol";
 import './interfaces/IUniswapV2Router01.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/Upgradable.sol';
 
-contract SFarm is Upgradable, DataStructure {
+contract Bank is Upgradable, DataStructure {
     using SafeMath for uint;
-    using SafeMath for uint192;
-    using SafeMath for uint64;
 
     // accept 1/LEFT_OVER_RATE token left over
     uint constant LEFT_OVER_RATE = 100;
-
-    // delegated called by Proxy
-    function initialize(
-        address _earnToken,
-        address _subsidyRecipient,
-        uint _subsidyRate
-    ) external onlyAdmin {
-        earnToken = _earnToken;
-        setSubsidy(_subsidyRecipient, _subsidyRate);
-    }
 
     modifier onlyStakeToken(address token) {
         require(_isTokenStakable(token), "unauthorized token"); _;
@@ -36,14 +24,6 @@ contract SFarm is Upgradable, DataStructure {
 
     modifier onlyFarmer {
         require(authorizedFarmers[msg.sender], "unauthorized farmer"); _;
-    }
-
-    modifier timelocked {
-        if (msg.sender != address(this)) {
-            require(total.stake() <= LOCK_FREE_STAKE, "!timelock");
-            require(authorizedAdmins[msg.sender], "!admin");
-        }
-        _;
     }
 
     function deposit(address token, uint amount) external onlyStakeToken(token) {
@@ -196,88 +176,6 @@ contract SFarm is Upgradable, DataStructure {
         require(total.stake() <= totalBalance, "over proccessed");
     }
 
-    function setSubsidy(address recipient, uint rate) public timelocked {
-        require(rate < SUBSIDY_UNIT, "subsidyRate overflow");
-        subsidyRate = uint64(rate);
-        if (recipient != address(0x0)) {
-            subsidyRecipient = recipient;
-        }
-        emit NewSubsidy(subsidyRecipient, subsidyRate);
-    }
-
-    function approve(address[] calldata tokens, address[] calldata routers, uint amount) external timelocked {
-        for (uint j = 0; j < routers.length; ++j) {
-            address router = routers[j];
-            require(authorizedRouters[router] > 0, "unauthorized router");
-            for (uint i = 0; i < tokens.length; ++i) {
-                IERC20(tokens[i]).approve(router, amount);
-            }
-        }
-    }
-
-    function authorizeAdmins(bytes32[] calldata changes) external timelocked {
-        for (uint i; i < changes.length; ++i) {
-            address admin = address(bytes20(changes[i]));
-            require(admin != msg.sender, "no self remove");
-            bool  enable = uint96(uint(changes[i])) > 0;
-            require(authorizedAdmins[admin] != enable, "authorization unchanged");
-            authorizedAdmins[admin] = enable;
-            emit AuthorizeAdmin(admin, enable);
-        }
-    }
-
-    function authorizeFarmers(bytes32[] calldata changes) external timelocked {
-        for (uint i; i < changes.length; ++i) {
-            address farmer = address(bytes20(changes[i]));
-            bool  enable = uint96(uint(changes[i])) > 0;
-            require(authorizedFarmers[farmer] != enable, "authorization unchanged");
-            authorizedFarmers[farmer] = enable;
-            emit AuthorizeFarmer(farmer, enable);
-        }
-    }
-
-    function authorizeRouters(bytes32[] calldata changes) external timelocked {
-        uint ROUTER_MASK = ROUTER_EARN_TOKEN + ROUTER_FARM_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
-        for (uint i; i < changes.length; ++i) {
-            address router = address(bytes20(changes[i]));
-            require(router != address(this), "nice try");
-            uint mask = uint(changes[i]) & ROUTER_MASK;
-            require(authorizedRouters[router] != mask, "authorization mask unchanged");
-            authorizedRouters[router] = mask;
-            emit AuthorizeRouter(router, mask);
-        }
-    }
-
-    function authorizeTokens(bytes32[] calldata changes) external timelocked {
-        for (uint i; i < changes.length; ++i) {
-            address token = address(bytes20(changes[i]));
-            uint96  level = uint96(uint(changes[i]));
-            uint oldLevel = authorizedTokens[token];
-            require(oldLevel != level, "authorization level unchanged");
-            if (level == TOKEN_LEVEL_STAKE) {
-                stakeTokensCount++;
-            } else if (oldLevel == TOKEN_LEVEL_STAKE) {
-                stakeTokensCount--;
-            }
-            authorizedTokens[token] = level;
-            emit AuthorizeToken(token, level);
-        }
-    }
-
-    // 20 bytes router address + 4 bytes func signature + 8 bytes bool
-    function authorizeWithdrawalFuncs(bytes32[] calldata changes) external timelocked {
-        uint ROUTER_MASK = ROUTER_FARM_TOKEN + ROUTER_OWNERSHIP_PRESERVED;
-        for (uint i; i < changes.length; ++i) {
-            address router = address(bytes20(changes[i]));
-            require(router != address(this), "nice try");
-            bytes4 func = bytes4(bytes12(uint96(uint(changes[i]))));
-            uint mask = uint(changes[i]) & ROUTER_MASK;
-            require(authorizedWithdrawalFunc[router][func] != mask, "authorization mask unchanged");
-            authorizedWithdrawalFunc[router][func] = mask;
-            emit AuthorizeWithdrawalFunc(router, func, mask);
-        }
-    }
-
     function query(address a) external view returns (
         uint stake,
         uint value,
@@ -336,20 +234,13 @@ contract SFarm is Upgradable, DataStructure {
 
     // DO NOT EDIT: auto-generated function
     function funcSelectors() external view override returns (bytes4[] memory signs) {
-        signs = new bytes4[](14);
+        signs = new bytes4[](7);
         signs[0] = 0x47e7ef24;		// deposit(address,uint256)
-        signs[1] = 0x4cb505b6;		// withdraw(address,uint256,tuple[])
+        signs[1] = 0xd2962152;		// withdraw(address,uint256,tuple[])
         signs[2] = 0xddc63262;		// harvest(uint256)
         signs[3] = 0x50658dad;		// farmerExec(address,address,bytes)
         signs[4] = 0xeb63a3d5;		// farmerProcessOutstandingToken(address,bytes,address[])
-        signs[5] = 0x9999d616;		// setSubsidy(address,uint256)
-        signs[6] = 0x26cab58f;		// approve(address[],address[],uint256)
-        signs[7] = 0x596412b3;		// authorizeAdmins(bytes32[])
-        signs[8] = 0x23ebd04f;		// authorizeFarmers(bytes32[])
-        signs[9] = 0x222da3cf;		// authorizeRouters(bytes32[])
-        signs[10] = 0xd3af0792;		// authorizeTokens(bytes32[])
-        signs[11] = 0x76f95301;		// authorizeWithdrawalFuncs(bytes32[])
-        signs[12] = 0xd4fc9fc6;		// query(address)
-        signs[13] = 0xe68f909d;		// queryConfig()
+        signs[5] = 0xd4fc9fc6;		// query(address)
+        signs[6] = 0xe68f909d;		// queryConfig()
     }
 }

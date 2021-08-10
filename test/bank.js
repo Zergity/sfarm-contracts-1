@@ -21,25 +21,26 @@ const ROUTER_FARM_TOKEN             = 1 << 1;
 const ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
 const Proxy = artifacts.require('Proxy');
-const SFarm = artifacts.require('SFarm');
 const Token = artifacts.require('Token');
 const Timelock = artifacts.require('Timelock');
+const Role = artifacts.require('Role');
+const Bank = artifacts.require('Bank');
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const Factory = artifacts.require('UniswapV2Factory');
 const AuthorizeRouter = artifacts.require('UniswapV2Router01');
 const Pair = artifacts.require('UniswapV2Pair');
 
-// const Proxy_ABIS = [ Proxy, SFarm, Token, Timelock ]
-//   .reduce((abi, a) => abi.concat(a.abi), [])
-//   .reduce((items, item) => {
-//     if (!items.some(({name}) => name === item.name)) {
-//       items.push(item)
-//     }
-//     return items
-//   }, [])
+Proxy.abi = [ Proxy, Token, Timelock, Role, Bank ]
+  .reduce((abi, a) => abi.concat(a.abi), [])
+  .reduce((items, item) => {
+    if (!items.some(({name}) => name === item.name)) {
+      items.push(item)
+    }
+    return items
+  }, [])
 
-const ABIs = [ Proxy, SFarm, Token, Timelock, Factory, AuthorizeRouter, Pair ]
+const ABIs = [ Proxy, Factory, AuthorizeRouter, Pair ]
   .reduce((abi, a) => abi.concat(a.abi), [])
   .reduce((items, item) => {
     if (!items.some(({name}) => name === item.name)) {
@@ -58,7 +59,7 @@ let inst = {
 };
 Math.seedrandom('any string you like');
 
-contract("SFarm", accounts => {
+contract("bank", accounts => {
   const farmer = accounts[2]
   const admin = accounts[1]
 
@@ -66,16 +67,8 @@ contract("SFarm", accounts => {
     inst.earn = await ERC20.new('ezDeFi', 'LZ')
     expect(inst.earn, 'contract not deployed: LZ').to.not.be.null
 
-    inst.proxy = await Proxy.new(admin)
+    inst.proxy = await Proxy.new(admin, inst.earn.address)
     expect(inst.proxy, 'contract not deployed: proxy').to.not.be.null
-
-    const timelock = await Timelock.new()
-    await inst.proxy.upgradeContract(
-      timelock.address,
-      (await timelock.setDelay.request(7*24*60*60)).data,
-      { from: admin },
-    )
-    inst.timelock = await Timelock.at(inst.proxy.address)
 
     const token = await Token.new()
     await inst.proxy.upgradeContract(
@@ -83,15 +76,31 @@ contract("SFarm", accounts => {
       '0x',
       { from: admin },
     )
-    inst.token = await Token.at(inst.proxy.address)
+    // inst.token = await Token.at(inst.proxy.address)
 
-    const sfarm = await SFarm.new()
+    const timelock = await Timelock.new()
     await inst.proxy.upgradeContract(
-      sfarm.address,
-      (await sfarm.initialize.request(inst.earn.address, admin, decShift(0.1, 18))).data,
+      timelock.address,
+      (await timelock.setDelay.request(7*24*60*60)).data,
       { from: admin },
     )
-    inst.farm = await SFarm.at(inst.proxy.address)
+    // inst.timelock = await Timelock.at(inst.proxy.address)
+
+    const role = await Role.new()
+    await inst.proxy.upgradeContract(
+      role.address,
+      (await role.setSubsidy.request(admin, decShift(0.1, 18))).data,
+      { from: admin },
+    )
+    // inst.role = await Role.at(inst.proxy.address)
+
+    const bank = await Bank.new()
+    await inst.proxy.upgradeContract(
+      bank.address,
+      '0x',
+      { from: admin },
+    )
+    // inst.bank = await Bank.at(inst.proxy.address)
 
     for (let i = 0; i < accounts.length; ++i) {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)
@@ -155,8 +164,8 @@ contract("SFarm", accounts => {
 
   describe('setup', () => {
     it("authorize tokens for stake", async() => {
-      await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'unauthorized token')
-      await inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE), { from: admin })
+      await expectRevert(inst.proxy.deposit(inst.coin[0].address, 1), 'unauthorized token')
+      await inst.proxy.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE), { from: admin })
     })
 
     it("authorize tokens for receiving", async() => {
@@ -169,31 +178,31 @@ contract("SFarm", accounts => {
           }
         }
       }
-      await inst.farm.authorizeTokens(pairs, { from: admin })
+      await inst.proxy.authorizeTokens(pairs, { from: admin })
     })
 
     it("approve farm to spent all coins", async() => {
-      await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'transfer amount exceeds balance')
+      await expectRevert(inst.proxy.deposit(inst.coin[0].address, 1), 'transfer amount exceeds balance')
       await inst.coin[0].mint(accounts[0], 1)
-      await expectRevert(inst.farm.deposit(inst.coin[0].address, 1), 'transfer amount exceeds allowance')
+      await expectRevert(inst.proxy.deposit(inst.coin[0].address, 1), 'transfer amount exceeds allowance')
       await inst.coin[0].burn(1, { from: accounts[0] })
   
       for (const coin of inst.coin) {
         for (const from of accounts) {
-          await coin.approve(inst.farm.address, LARGE_VALUE, { from })
+          await coin.approve(inst.proxy.address, LARGE_VALUE, { from })
         }
       }
     })
 
     it("approve router to spent all farm's coins", async() => {
-      await expectRevert(inst.farm.approve(
+      await expectRevert(inst.proxy.allow(
         inst.coin.map(c => c.address),
         inst.router.map(r => r.address),
         LARGE_VALUE,
         { from: admin }
       ), 'unauthorized router')
 
-      await inst.farm.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_FARM_TOKEN)), { from: admin })
+      await inst.proxy.authorizeRouters(inst.router.map(r => r.address + routerMask(ROUTER_FARM_TOKEN)), { from: admin })
 
       const coins = inst.coin.map(c => c.address)
       for (let i = 0; i < inst.coin.length-1; ++i) {
@@ -202,7 +211,7 @@ contract("SFarm", accounts => {
         }
       }
 
-      await inst.farm.approve(
+      await inst.proxy.allow(
         coins,
         inst.router.map(r => r.address),
         LARGE_VALUE,
@@ -213,44 +222,44 @@ contract("SFarm", accounts => {
 
   describe('timelock', () => {
     it("!admin without timelock", async() => {
-      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")
+      await expectRevert(inst.proxy.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")
     })
 
     it("stake enough token to trigger timelock requirement", async() => {
       await inst.coin[2].mint(accounts[2], decShift(10001, 18))
-      await inst.farm.deposit(inst.coin[2].address, decShift(10001, 18), { from: accounts[2] })
+      await inst.proxy.deposit(inst.coin[2].address, decShift(10001, 18), { from: accounts[2] })
     })
 
     it("!timelock", async() => {
-      await expectRevert(inst.farm.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!timelock")
+      await expectRevert(inst.proxy.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!timelock")
     })
 
     it("!admin", async() => {
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await expectRevert(inst.farm.queueTransaction(...params), "!admin")
+      await expectRevert(inst.proxy.queueTransaction(...params), "!admin")
     })
 
     it("timelock: too soon", async() => {
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await inst.farm.queueTransaction(...params, { from: admin })
-      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
+      await inst.proxy.queueTransaction(...params, { from: admin })
+      await expectRevert(inst.proxy.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
       await time.increase(7*24*60*60 + TIME_TOLLERANCE)
-      await expectRevert(inst.farm.executeTransaction(...params), "!admin")
+      await expectRevert(inst.proxy.executeTransaction(...params), "!admin")
     })
 
     it("timelock: not queued", async() => {
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
       await time.increase(7*24*60*60 + TIME_TOLLERANCE)
-      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
+      await expectRevert(inst.proxy.executeTransaction(...params, { from: admin }), "hasn't been queued")
     })
 
     it("timelock: canceled", async() => {
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
-      await inst.farm.queueTransaction(...params, { from: admin })
+      await inst.proxy.queueTransaction(...params, { from: admin })
       await time.increase(3*24*60*60 + TIME_TOLLERANCE)
-      await inst.farm.cancelTransaction(...params, { from: admin })
+      await inst.proxy.cancelTransaction(...params, { from: admin })
       await time.increase(4*24*60*60 + TIME_TOLLERANCE)
-      await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't been queued")
+      await expectRevert(inst.proxy.executeTransaction(...params, { from: admin }), "hasn't been queued")
     })
 
     it("timelock: farmerExec attack", async() => {
@@ -259,15 +268,15 @@ contract("SFarm", accounts => {
       await adminExec("authorizeFarmers", [ farmer + '1'.padStart(24,'0') ])
 
       await expectRevert(adminExec("authorizeRouters",
-        [ inst.farm.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+        [ inst.proxy.address + routerMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
       ), "nice try")
 
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
       const input = params[3]
 
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[0].address,
-        inst.farm.address,
+        inst.proxy.address,
         input,
         { from: farmer },
       ), "unauthorized router")
@@ -280,20 +289,20 @@ contract("SFarm", accounts => {
 
       const amount = 1000000;
       await inst.coin[0].mint(accounts[0], amount)
-      await inst.farm.deposit(inst.coin[0].address, amount)
+      await inst.proxy.deposit(inst.coin[0].address, amount)
 
       const params = await timelockParams('authorizeTokens', inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE))
       const input = params[3]
       const funcSign = strip0x(input).substr(0, 8)
 
       await expectRevert(adminExec("authorizeWithdrawalFuncs",
-        [ inst.farm.address + funcSign + routerWithdrawalMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
+        [ inst.proxy.address + funcSign + routerWithdrawalMask(ROUTER_EARN_TOKEN | ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ]
       ), "nice try")
 
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, amount, [{
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, amount, [{
           receivingToken: inst.coin[0].address,
           execs: [{
-            router: inst.farm.address,
+            router: inst.proxy.address,
             input,
           }],
         }],
@@ -307,18 +316,18 @@ contract("SFarm", accounts => {
     it("overlap", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(13, 18))
 
       await time.increase(240*60*60);
       await inst.coin[0].mint(accounts[1], decShift(100, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(87, 18), { from: accounts[1] })
+      await inst.proxy.deposit(inst.coin[0].address, decShift(87, 18), { from: accounts[1] })
 
       await time.increase(13*60*60);
-      await inst.farm.withdraw(inst.coin[0].address, decShift(13, 18), [])
+      await inst.proxy.withdraw(inst.coin[0].address, decShift(13, 18), [])
       expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(60, 18), "balance intact")
 
       await time.increase(30*60*60);
-      await inst.farm.withdraw(inst.coin[0].address, decShift(87, 18), [], { from: accounts[1] })
+      await inst.proxy.withdraw(inst.coin[0].address, decShift(87, 18), [], { from: accounts[1] })
       expect(await inst.coin[0].balanceOf(accounts[1])).to.be.bignumber.equal(decShift(100, 18), "balance intact")
       await snapshot.revert(ss);
     })
@@ -327,11 +336,11 @@ contract("SFarm", accounts => {
       const ss = await snapshot.take();
 
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(60, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(60, 18))
 
       await time.increase(48*60*60);
       await expectRevert(
-        inst.farm.withdraw(inst.coin[0].address, new BN(decShift(60, 18)).sub(new BN(1)), []),
+        inst.proxy.withdraw(inst.coin[0].address, new BN(decShift(60, 18)).sub(new BN(1)), []),
         "ds-math-sub-underflow")
 
       await snapshot.revert(ss);
@@ -340,12 +349,12 @@ contract("SFarm", accounts => {
     it("stake lock: single", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(13, 18))
 
       await time.increase(24*60*60-TIME_TOLLERANCE);
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
       await time.increase(TIME_TOLLERANCE);
-      await inst.farm.withdraw(inst.coin[0].address, decShift(13, 18), [])
+      await inst.proxy.withdraw(inst.coin[0].address, decShift(13, 18), [])
       expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(60, 18), "balance intact")
       await snapshot.revert(ss);
     })
@@ -353,26 +362,26 @@ contract("SFarm", accounts => {
     it("stake lock: queue", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(100, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(10, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(10, 18))
 
       await time.increase(24*60*60-TIME_TOLLERANCE);
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
       await time.increase(TIME_TOLLERANCE);
       {
         const ss = await snapshot.take();
-        await inst.farm.withdraw(inst.coin[0].address, decShift(10, 18), [])
+        await inst.proxy.withdraw(inst.coin[0].address, decShift(10, 18), [])
         expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(100, 18))
         await snapshot.revert(ss);
       }
 
-      await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(2, 18))
 
       await time.increase(24*60*60*2/(10+2)-TIME_TOLLERANCE);
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked 2')
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked 2')
       await time.increase(TIME_TOLLERANCE);
       {
         const ss = await snapshot.take();
-        await inst.farm.withdraw(inst.coin[0].address, decShift(12, 18), [])
+        await inst.proxy.withdraw(inst.coin[0].address, decShift(12, 18), [])
         expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(100, 18))
         await snapshot.revert(ss);
       }
@@ -383,19 +392,19 @@ contract("SFarm", accounts => {
     it("stake lock: stack", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(100, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(10, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(10, 18))
 
       await time.increase(10*60*60);
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
 
-      await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(2, 18))
 
       await time.increase(14*60*60*10/(10+2) + 24*60*60*2/(10+2) - TIME_TOLLERANCE);
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked 2')
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked 2')
       await time.increase(TIME_TOLLERANCE);
       {
         const ss = await snapshot.take();
-        await inst.farm.withdraw(inst.coin[0].address, decShift(12, 18), [])
+        await inst.proxy.withdraw(inst.coin[0].address, decShift(12, 18), [])
         expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(100, 18))
         await snapshot.revert(ss);
       }
@@ -406,21 +415,21 @@ contract("SFarm", accounts => {
     it("stake lock: repeated resurrection", async() => {
       const ss = await snapshot.take();
       await inst.coin[0].mint(accounts[0], decShift(100, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(10, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(10, 18))
 
       await time.increase(48*60*60);
-      await inst.farm.withdraw(inst.coin[0].address, decShift(10, 18), [])
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), '!Stake', 'withdraw: !Stake')
+      await inst.proxy.withdraw(inst.coin[0].address, decShift(10, 18), [])
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), '!Stake', 'withdraw: !Stake')
 
       await time.increase(30*24*60*60);
 
       for (let i = 0; i < 5; ++i) {
-        await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
-        await inst.farm.withdraw(inst.coin[0].address, decShift(2, 18), [])
+        await inst.proxy.deposit(inst.coin[0].address, decShift(2, 18))
+        await inst.proxy.withdraw(inst.coin[0].address, decShift(2, 18), [])
       }
 
-      await inst.farm.deposit(inst.coin[0].address, decShift(2, 18))
-      await expectRevert(inst.farm.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      await inst.proxy.deposit(inst.coin[0].address, decShift(2, 18))
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
 
       await snapshot.revert(ss);
     })
@@ -429,11 +438,11 @@ contract("SFarm", accounts => {
   describe('farmerExec', () => {
     it('deposit', async() => {
       await inst.coin[0].mint(accounts[0], decShift(60, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(60, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(60, 18))
     })
 
     it("unauthorize farmer", async() => {
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[1].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
@@ -442,7 +451,7 @@ contract("SFarm", accounts => {
         ), { from: farmer },
       ), "unauthorized farmer")
 
-      await expectRevert(inst.farm.farmerProcessOutstandingToken(
+      await expectRevert(inst.proxy.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           decShift(1, 18), 0,
           [inst.coin[3].address, inst.earn.address ],
@@ -454,7 +463,7 @@ contract("SFarm", accounts => {
 
       await adminExec("authorizeFarmers", [ farmer + '1'.padStart(24,'0') ])
 
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[1].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
@@ -465,7 +474,7 @@ contract("SFarm", accounts => {
     })
 
     it('swap', async() => {
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[1].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
@@ -474,30 +483,30 @@ contract("SFarm", accounts => {
           ), { from: farmer },
       ), "token balance unchanged")
 
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
           [ inst.coin[0].address, inst.coin[1].address ],
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
           ), { from: farmer },
       ), "token balance unchanged")
   
-      await inst.farm.farmerExec(
+      await inst.proxy.farmerExec(
         inst.coin[1].address,
         ...await execParams(inst.router[0], 'swapExactTokensForTokens',
           decShift(30, 18), 0,
           [ inst.coin[0].address, inst.coin[1].address ],
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
           ), { from: farmer },
       )
     })
 
     it('addLiquidity and stealing', async() => {
-      const balance0 = await inst.coin[0].balanceOf(inst.farm.address)
-      const balance1 = await inst.coin[1].balanceOf(inst.farm.address)
+      const balance0 = await inst.coin[0].balanceOf(inst.proxy.address)
+      const balance1 = await inst.coin[1].balanceOf(inst.proxy.address)
 
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         inst.pair[0][1].address,
         ...await execParams(inst.router[0], 'addLiquidity',
           inst.coin[0].address, inst.coin[1].address,
@@ -509,16 +518,16 @@ contract("SFarm", accounts => {
     })
 
     it('addLiquidity', async() => {
-      const balance0 = await inst.coin[0].balanceOf(inst.farm.address)
-      const balance1 = await inst.coin[1].balanceOf(inst.farm.address)
+      const balance0 = await inst.coin[0].balanceOf(inst.proxy.address)
+      const balance1 = await inst.coin[1].balanceOf(inst.proxy.address)
 
-      await inst.farm.farmerExec(
+      await inst.proxy.farmerExec(
         inst.pair[0][1].address,
         ...await execParams(inst.router[0], 'addLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           balance0, balance1,
           0, 0,
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
           ), { from: farmer },
       )
     })
@@ -526,28 +535,28 @@ contract("SFarm", accounts => {
     it("authorize router as ownership preserved", async() => {
       const ss = await snapshot.take()
 
-      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
+      const liquidity = await inst.pair[0][1].balanceOf(inst.proxy.address)
 
-      await expectRevert(inst.farm.farmerExec(
+      await expectRevert(inst.proxy.farmerExec(
         ZERO_ADDRESS,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ), { from: farmer },
       ), "not authorized as ownership preserved")
 
       // authorize the router to farmerExec without balance verification
       await adminExec("authorizeRouters", [ inst.router[0].address + routerMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ])
 
-      await inst.farm.farmerExec(
+      await inst.proxy.farmerExec(
         ZERO_ADDRESS,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ), { from: farmer },
       )
 
@@ -555,8 +564,8 @@ contract("SFarm", accounts => {
     })
 
     it('removeLiquidity and stealing', async() => {
-      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
-      await expectRevert(inst.farm.farmerExec(
+      const liquidity = await inst.pair[0][1].balanceOf(inst.proxy.address)
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
@@ -568,27 +577,27 @@ contract("SFarm", accounts => {
     })
 
     it('removeLiquidity more than owned', async() => {
-      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
-      await expectRevert(inst.farm.farmerExec(
+      const liquidity = await inst.pair[0][1].balanceOf(inst.proxy.address)
+      await expectRevert(inst.proxy.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity.add(new BN(1)),
           0, 0,
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ), { from: farmer },
       ), "ds-math-sub-underflow")
     })
 
     it('removeLiquidity', async() => {
-      const liquidity = await inst.pair[0][1].balanceOf(inst.farm.address)
-      await inst.farm.farmerExec(
+      const liquidity = await inst.pair[0][1].balanceOf(inst.proxy.address)
+      await inst.proxy.farmerExec(
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
           liquidity,
           0, 0,
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ), { from: farmer },
       )
     })
@@ -608,35 +617,35 @@ contract("SFarm", accounts => {
       b4 = r4.div(new BN(10))
 
       await inst.coin[3].mint(accounts[3], b3)
-      await inst.farm.deposit(inst.coin[3].address, b3, { from: accounts[3] })
+      await inst.proxy.deposit(inst.coin[3].address, b3, { from: accounts[3] })
       await inst.coin[4].mint(accounts[4], b4)
-      await inst.farm.deposit(inst.coin[4].address, b4, { from: accounts[4] })
+      await inst.proxy.deposit(inst.coin[4].address, b4, { from: accounts[4] })
 
       await time.increase(48*60*60);
 
-      await inst.farm.farmerExec(
+      await inst.proxy.farmerExec(
         inst.pair[3][4].address,
         ...await execParams(inst.router[0], 'addLiquidity',
           inst.coin[3].address, inst.coin[4].address,
           b3, b4,
           0, 0,
-          inst.farm.address, LARGE_VALUE
+          inst.proxy.address, LARGE_VALUE
         ), { from: farmer },
       )
 
-      await expectRevert(inst.farm.withdraw(inst.coin[3].address, 1, [], { from: accounts[3] }), "transfer amount exceeds balance")
+      await expectRevert(inst.proxy.withdraw(inst.coin[3].address, 1, [], { from: accounts[3] }), "transfer amount exceeds balance")
     })
 
     it("add some coin buffer", async() => {
       await inst.coin[3].mint(accounts[0], b3.div(new BN(100)))
-      await inst.farm.deposit(inst.coin[3].address, b3.div(new BN(100)))
+      await inst.proxy.deposit(inst.coin[3].address, b3.div(new BN(100)))
       await inst.coin[4].mint(accounts[0], b4.div(new BN(100)))
-      await inst.farm.deposit(inst.coin[4].address, b4.div(new BN(100)))
+      await inst.proxy.deposit(inst.coin[4].address, b4.div(new BN(100)))
     })
 
     it("unauthorize router.function", async() => {
-      const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
-      await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
+      const liquidity = await inst.pair[3][4].balanceOf(inst.proxy.address)
+      await expectRevert(inst.proxy.withdraw(inst.coin[3].address, b3, [
           {
             receivingToken: inst.coin[3].address,
             execs: [
@@ -644,7 +653,7 @@ contract("SFarm", accounts => {
                 inst.coin[3].address, inst.coin[4].address,
                 liquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
             ],
           },
@@ -660,7 +669,7 @@ contract("SFarm", accounts => {
         inst.router.map(r => r.address + 'baa2abde' + routerWithdrawalMask(ROUTER_NONE)),
       )
 
-      await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
+      await expectRevert(inst.proxy.withdraw(inst.coin[3].address, b3, [
           {
             receivingToken: inst.coin[3].address,
             execs: [
@@ -668,7 +677,7 @@ contract("SFarm", accounts => {
                 inst.coin[3].address, inst.coin[4].address,
                 liquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
             ],
           },
@@ -684,8 +693,8 @@ contract("SFarm", accounts => {
     it("unauthorize router.function as ownership preserved", async() => {
       const ss = await snapshot.take()
 
-      const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
-      await expectRevert(inst.farm.withdraw(inst.coin[3].address, b3, [
+      const liquidity = await inst.pair[3][4].balanceOf(inst.proxy.address)
+      await expectRevert(inst.proxy.withdraw(inst.coin[3].address, b3, [
           {
             receivingToken: ZERO_ADDRESS,
             execs: [
@@ -693,7 +702,7 @@ contract("SFarm", accounts => {
                 inst.coin[3].address, inst.coin[4].address,
                 liquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
             ],
           },
@@ -705,7 +714,7 @@ contract("SFarm", accounts => {
         [ inst.router[0].address + 'baa2abde' + routerWithdrawalMask(ROUTER_FARM_TOKEN | ROUTER_OWNERSHIP_PRESERVED) ],
       )
 
-      await inst.farm.withdraw(inst.coin[3].address, b3, [
+      await inst.proxy.withdraw(inst.coin[3].address, b3, [
           {
             receivingToken: ZERO_ADDRESS,
             execs: [
@@ -713,7 +722,7 @@ contract("SFarm", accounts => {
                 inst.coin[3].address, inst.coin[4].address,
                 liquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
             ],
           },
@@ -724,10 +733,10 @@ contract("SFarm", accounts => {
     })
 
     it('single removeLiquidity', async() => {
-      const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
+      const liquidity = await inst.pair[3][4].balanceOf(inst.proxy.address)
 
       const ss = await snapshot.take()
-      await inst.farm.withdraw(inst.coin[3].address, b3, [
+      await inst.proxy.withdraw(inst.coin[3].address, b3, [
           {
             receivingToken: inst.coin[3].address,
             execs: [
@@ -735,23 +744,23 @@ contract("SFarm", accounts => {
                 inst.coin[3].address, inst.coin[4].address,
                 liquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
             ],
           },
         ], { from: accounts[3] },
       )
 
-      await inst.farm.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
+      await inst.proxy.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
       await snapshot.revert(ss)
     })
 
     it('double removeLiquidity', async() => {
-      const liquidity = await inst.pair[3][4].balanceOf(inst.farm.address)
+      const liquidity = await inst.pair[3][4].balanceOf(inst.proxy.address)
       const firstLiquidity = liquidity.div(new BN(3))
       const nextLiquidity = liquidity.sub(firstLiquidity)
 
-      await inst.farm.withdraw(inst.coin[3].address, b3, [
+      await inst.proxy.withdraw(inst.coin[3].address, b3, [
           {
             receivingToken: inst.coin[3].address,
             execs: [
@@ -759,20 +768,20 @@ contract("SFarm", accounts => {
                 inst.coin[3].address, inst.coin[4].address,
                 firstLiquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
               await execParam(inst.router[0], "removeLiquidity",
                 inst.coin[3].address, inst.coin[4].address,
                 nextLiquidity,
                 0, 0,
-                inst.farm.address, LARGE_VALUE
+                inst.proxy.address, LARGE_VALUE
               ),
             ],
           },
         ], { from: accounts[3] },
       )
 
-      await inst.farm.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
+      await inst.proxy.withdraw(inst.coin[4].address, b4, [], { from: accounts[4] })
     })
   })
 
@@ -781,17 +790,17 @@ contract("SFarm", accounts => {
       const N = Object.keys(inst.coin).length
       for (let i = 0; i < N-1; ++i) {
         for (let j = 1; j < i; ++j) {
-          const liquidity = await inst.pair[i][j].balanceOf(inst.farm.address)
+          const liquidity = await inst.pair[i][j].balanceOf(inst.proxy.address)
           if (liquidity.isZero()) {
             continue
           }
-          await inst.farm.farmerExec(
+          await inst.proxy.farmerExec(
             inst.coin[i].address,
             ...await execParams(inst.router[0], "removeLiquidity",
               inst.coin[i].address, inst.coin[j].address,
               liquidity,
               0, 0,
-              inst.farm.address, LARGE_VALUE,
+              inst.proxy.address, LARGE_VALUE,
             ), { from: farmer },
           )
         }
@@ -799,11 +808,11 @@ contract("SFarm", accounts => {
     })
 
     it("authorized earn token router", async() => {
-      await expectRevert(inst.farm.farmerProcessOutstandingToken(
+      await expectRevert(inst.proxy.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           1, 0,
           [inst.coin[0].address, inst.earn.address ],
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ),
         Object.values(inst.coin).map(c => c.address),
       ), "unauthorized")
@@ -819,11 +828,11 @@ contract("SFarm", accounts => {
     it("outstanding token: over processed", async() => {
       // due to slippages, total balance might be != total stake
 
-      await expectRevert(inst.farm.farmerProcessOutstandingToken(
+      await expectRevert(inst.proxy.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           1000, 0,
           [inst.coin[3].address, inst.earn.address ],
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ),
         Object.values(inst.coin).map(c => c.address),
         { from: farmer },
@@ -831,11 +840,11 @@ contract("SFarm", accounts => {
     })
 
     it("mint some more token for buffer", async() => {
-      await inst.coin[3].mint(inst.farm.address, decShift(1, 22));
+      await inst.coin[3].mint(inst.proxy.address, decShift(1, 22));
     })
 
     it("stealing outstanding token", async() => {
-      await expectRevert(inst.farm.farmerProcessOutstandingToken(
+      await expectRevert(inst.proxy.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           decShift(1, 18), 0,
           [inst.coin[3].address, inst.earn.address ],
@@ -847,11 +856,11 @@ contract("SFarm", accounts => {
     })
 
     it("outstanding token", async() => {
-      await inst.farm.farmerProcessOutstandingToken(
+      await inst.proxy.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
           decShift(1, 18), 0,
           [inst.coin[3].address, inst.earn.address ],
-          inst.farm.address, LARGE_VALUE,
+          inst.proxy.address, LARGE_VALUE,
         ),
         Object.values(inst.coin).map(c => c.address),
         { from: farmer },
@@ -864,14 +873,14 @@ contract("SFarm", accounts => {
       const ss = await snapshot.take()
 
       await inst.coin[0].mint(accounts[5], decShift(100, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+      await inst.proxy.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
 
       await inst.coin[1].mint(accounts[6], decShift(33, 18))
-      await inst.farm.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+      await inst.proxy.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
 
       await time.increase(48*60*60)
 
-      const tx = await inst.farm.harvest(0, { from: accounts[5] })
+      const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
       const expectedSubsidy = value.div(new BN(9))
       expect(subsidy).is.bignumber
@@ -880,7 +889,7 @@ contract("SFarm", accounts => {
 
       await time.increase(24*60*60)
 
-      const tx1 = await inst.farm.harvest(13456789, { from: accounts[6] })
+      const tx1 = await inst.proxy.harvest(13456789, { from: accounts[6] })
       const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
       const expectedSubsidy1 = value1.div(new BN(9))
       expect(subsidy1).is.bignumber
@@ -897,25 +906,25 @@ contract("SFarm", accounts => {
 
     it("harvest with stake withdrawn", async() => {
       await inst.coin[0].mint(accounts[5], decShift(100, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+      await inst.proxy.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
 
       await inst.coin[1].mint(accounts[6], decShift(33, 18))
-      await inst.farm.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+      await inst.proxy.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
 
       await time.increase(48*60*60)
-      await inst.farm.withdraw(inst.coin[0].address, decShift(100, 18), [], { from: accounts[5] })
+      await inst.proxy.withdraw(inst.coin[0].address, decShift(100, 18), [], { from: accounts[5] })
       await time.increase(24*60*60)
-      await inst.farm.withdraw(inst.coin[1].address, decShift(33, 18), [], { from: accounts[6] })
+      await inst.proxy.withdraw(inst.coin[1].address, decShift(33, 18), [], { from: accounts[6] })
 
       await time.increase(13*60*60)
 
       // randomly deposit some more for other account
       await inst.coin[0].mint(accounts[0], decShift(13, 18))
-      await inst.farm.deposit(inst.coin[0].address, decShift(13, 18), { from: accounts[0] })
+      await inst.proxy.deposit(inst.coin[0].address, decShift(13, 18), { from: accounts[0] })
 
       await time.increase(60*60*60)
 
-      const tx = await inst.farm.harvest(0, { from: accounts[5] })
+      const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
       const expectedSubsidy = value.div(new BN(9))
       expect(subsidy).is.bignumber
@@ -924,7 +933,7 @@ contract("SFarm", accounts => {
 
       await time.increase(24*60*60)
 
-      const tx1 = await inst.farm.harvest(13456789, { from: accounts[6] })
+      const tx1 = await inst.proxy.harvest(13456789, { from: accounts[6] })
       const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
       const expectedSubsidy1 = value1.div(new BN(9))
       expect(subsidy1).is.bignumber
@@ -939,14 +948,14 @@ contract("SFarm", accounts => {
   })
 
   async function adminExec(func, ...args) {
-    await expectRevert(inst.farm[func](...args), "!timelock")
+    await expectRevert(inst.proxy[func](...args), "!timelock")
     const params = await timelockParams(func, ...args)
-    await expectRevert(inst.farm.queueTransaction(...params), "!admin")
-    await inst.farm.queueTransaction(...params, { from: admin })
-    await expectRevert(inst.farm.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
+    await expectRevert(inst.proxy.queueTransaction(...params), "!admin")
+    await inst.proxy.queueTransaction(...params, { from: admin })
+    await expectRevert(inst.proxy.executeTransaction(...params, { from: admin }), "hasn't surpassed time lock")
     await time.increase(7*24*60*60 + TIME_TOLLERANCE)
-    await expectRevert(inst.farm.executeTransaction(...params), "!admin")
-    return inst.farm.executeTransaction(...params, { from: admin })
+    await expectRevert(inst.proxy.executeTransaction(...params), "!admin")
+    return inst.proxy.executeTransaction(...params, { from: admin })
   }
 })
 
@@ -964,9 +973,9 @@ async function execParam(router, func, ...args) {
 }
 
 async function timelockParams(func, ...args) {
-  const { data } = await inst.farm[func].request(...args)
+  const { data } = await inst.proxy[func].request(...args)
   const eta = parseInt(await time.latest()) + 7*24*60*60 + TIME_TOLLERANCE
-  return [ inst.farm.address, 0, "", data, eta ]
+  return [ inst.proxy.address, 0, "", data, eta ]
 }
 
 function routerMask(mask) {

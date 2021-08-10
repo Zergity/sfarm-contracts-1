@@ -1,7 +1,7 @@
 {
-  "name": "sfarm",
+  "name": "lzbank",
   "version": "0.1.0",
-  "description": "Stablecoin Farm",
+  "description": "LaunchZone Stablecoin Bank",
   "acc0": "0x1000000000000000000000000000000000000000000000000000000000000000,1000000000000000000000",
   "acc1": "0x0000000000000000000000000000000000000000000000000000000000000001,1000000000000000000000",
   "acc2": "0x0000000000000000000000000000000000000000000000000000000000000002,1000000000000000000000",
@@ -11,7 +11,7 @@
   "acc6": "0x0000000000000000000000000000000000000000000000000000000000000006,1000000000000000000000",
   "scripts": {
     "compile": "truffle compile --all",
-    "generate": "npm run compile && node tools/generateFuncSelectors.js SFarm Token Timelock",
+    "generate": "node tools/generateFuncSelectors.js Bank Role Token Timelock",
     "deploy": "truffle migrate --reset --network ${NODE_ENV:-local}",
     "parser": "babel-eslint",
     "ganache": "fuser -k -n tcp 8545; ganache-cli --account=$npm_package_acc0 --account=$npm_package_acc1 --account=$npm_package_acc2 --account=$npm_package_acc3 --account=$npm_package_acc4 --account=$npm_package_acc5 --account=$npm_package_acc6 --quiet > /dev/null 2>&1 &",

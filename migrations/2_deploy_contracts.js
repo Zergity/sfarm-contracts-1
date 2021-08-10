@@ -17,30 +17,35 @@ module.exports = async function(deployer, network, accounts) {
     const Proxy = artifacts.require('Proxy.sol');
     const Timelock = artifacts.require('Timelock.sol')
     const Token = artifacts.require('Token.sol');
-    const SFarm = artifacts.require('SFarm.sol');
+    const Role = artifacts.require('Role.sol');
+    const Bank = artifacts.require('Bank.sol');
 
     await Promise.all([
-        deployer.deploy(Proxy, admin),
-        deployer.deploy(Timelock),
+        deployer.deploy(Proxy, admin, process.env.EARN_TOKEN),
         deployer.deploy(Token),
-        deployer.deploy(SFarm),
+        deployer.deploy(Timelock),
+        deployer.deploy(Role),
+        deployer.deploy(Bank),
     ])
 
-    const [ proxy, timelock, token, sfarm ] = await Promise.all([
+    const [ proxy, token, timelock, role, bank ] = await Promise.all([
         Proxy.deployed(),
-        Timelock.deployed(),
         Token.deployed(),
-        SFarm.deployed(),
+        Timelock.deployed(),
+        Role.deployed(),
+        Bank.deployed(),
     ])
 
     const txs = await Promise.all([
+        proxy.upgradeContract(token.address, '0x'),
+
         timelock.setDelay.request(7*24*60*60)
             .then(({data}) => proxy.upgradeContract(timelock.address, data)),
 
-        proxy.upgradeContract(token.address, '0x'),
+        role.setSubsidy.request(admin, decShift(0.1, 18))
+            .then(({data}) => proxy.upgradeContract(role.address, data)),
 
-        sfarm.initialize.request(process.env.EARN_TOKEN, admin, decShift(0.1, 18))
-            .then(({data}) => proxy.upgradeContract(sfarm.address, data)),
+        proxy.upgradeContract(bank.address, '0x'),
     ])
 
     // test upgrade

@@ -6,7 +6,6 @@ pragma solidity >=0.6.2;
 
 // solium-disable security/no-inline-assembly
 
-import "./Token.sol";
 import "./DataStructure.sol";
 import "./interfaces/Upgradable.sol";
 
@@ -19,7 +18,8 @@ contract Proxy is DataStructure {
     event Deployed(address indexed addr, bytes initCode, bytes4[] funcs);
 
     constructor(
-        address _admin
+        address _admin,
+        address _earnToken
     ) public {
         if (_admin == address(0x0)) {
             _admin = msg.sender;
@@ -27,6 +27,8 @@ contract Proxy is DataStructure {
 
         authorizedAdmins[_admin] = true;
         emit AuthorizeAdmin(_admin, true);
+
+        earnToken = _earnToken;
     }
 
     function _mustDelegateCall(address impl, bytes memory data) internal {
@@ -114,17 +116,6 @@ contract Proxy is DataStructure {
             size := extcodesize(_addr)
         }
         return (size > 0);
-    }
-
-    function _isOrphan(address addr) private view returns (bool) {
-        bytes4[] memory funcs = Upgradable(addr).funcSelectors();
-        for (uint i = 0; i < funcs.length; ++i) {
-            bytes4 func = funcs[i];
-            if (impls[func] == addr) {
-                return false;
-            }
-        }
-        return true;
     }
 
     // un-upgradable functions here
