@@ -58,6 +58,9 @@ contract DataStructure {
     Stake total;
     using StakeLib for Stake;
 
+    mapping (address => bool)   ignoredAddresses;   // set of addresses to be ignored from total supply
+    event AddressIngored(address account, bool ignored);
+
     event NewSubsidy(address recipient, uint rate);
 
     event AuthorizeAdmin(address indexed admin, bool enable);
@@ -81,13 +84,17 @@ contract DataStructure {
     }
 
     function _mint(address account, uint amount) internal {
-        total = total.deposit(amount);
         stakes[account] = stakes[account].deposit(amount);
+        if (!ignoredAddresses[account]) {
+            total = total.deposit(amount);
+        }
     }
 
     function _burn(address account, uint amount) internal {
         stakes[account] = stakes[account].withdraw(amount);
-        total = total.withdraw(amount);
+        if (!ignoredAddresses[account]) {
+            total = total.withdraw(amount);
+        }
     }
 
     function _balanceOf(address account) internal view returns (uint) {

@@ -28,6 +28,14 @@ contract Role is Upgradable, DataStructure {
         emit NewSubsidy(subsidyRecipient, subsidyRate);
     }
 
+    function ignoreAddress(address[] calldata accounts, bool ignore) external timelocked {
+        for (uint i = 0; i < accounts.length; ++i) {
+            address account = accounts[i];
+            ignoredAddresses[account] = ignore;
+            emit AddressIngored(account, ignore);
+        }
+    }
+
     function allow(address[] calldata tokens, address[] calldata routers, uint amount) external timelocked {
         for (uint j = 0; j < routers.length; ++j) {
             address router = routers[j];
@@ -103,13 +111,14 @@ contract Role is Upgradable, DataStructure {
 
     // DO NOT EDIT: auto-generated function
     function funcSelectors() external view override returns (bytes4[] memory signs) {
-        signs = new bytes4[](7);
+        signs = new bytes4[](8);
         signs[0] = 0x9999d616;		// setSubsidy(address,uint256)
-        signs[1] = 0x95d739cd;		// allow(address[],address[],uint256)
-        signs[2] = 0x596412b3;		// authorizeAdmins(bytes32[])
-        signs[3] = 0x23ebd04f;		// authorizeFarmers(bytes32[])
-        signs[4] = 0x222da3cf;		// authorizeRouters(bytes32[])
-        signs[5] = 0xd3af0792;		// authorizeTokens(bytes32[])
-        signs[6] = 0x76f95301;		// authorizeWithdrawalFuncs(bytes32[])
+        signs[1] = 0x84fee3e2;		// ignoreAddress(address[],bool)
+        signs[2] = 0x95d739cd;		// allow(address[],address[],uint256)
+        signs[3] = 0x596412b3;		// authorizeAdmins(bytes32[])
+        signs[4] = 0x23ebd04f;		// authorizeFarmers(bytes32[])
+        signs[5] = 0x222da3cf;		// authorizeRouters(bytes32[])
+        signs[6] = 0xd3af0792;		// authorizeTokens(bytes32[])
+        signs[7] = 0x76f95301;		// authorizeWithdrawalFuncs(bytes32[])
     }
 }
