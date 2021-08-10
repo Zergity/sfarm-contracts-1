@@ -220,6 +220,73 @@ contract("bank", accounts => {
     })
   })
 
+  describe("ERC20", () => {
+    let ss
+    it("setup some balance", async() => {
+      ss = await snapshot.take()
+
+      await inst.coin[0].mint(accounts[5], decShift(100, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+
+      await inst.coin[1].mint(accounts[6], decShift(33, 18))
+      await inst.proxy.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+
+      await expectRevert(
+        inst.proxy.transfer(accounts[6], decShift(13, 18), { from: accounts[5] }),
+        "locked",
+      )
+
+      await time.increase(48*60*60)
+    })
+
+    it("transfer", async() => {
+      await inst.proxy.transfer(accounts[6], decShift(13, 18), { from: accounts[5] })
+      expect(await inst.proxy.balanceOf(accounts[5])).is.bignumber.equal(decShift(87, 18), "balance after transfer")
+      expect(await inst.proxy.balanceOf(accounts[6])).is.bignumber.equal(decShift(46, 18), "balance after receive")
+    })
+
+    it("harvest", async() => {
+      await inst.earn.mint(inst.proxy.address, decShift(100, 18))
+
+      await inst.proxy.transfer(accounts[3], decShift(4, 18), { from: accounts[6] })
+      expect(await inst.proxy.balanceOf(accounts[3])).is.bignumber.equal(decShift(4, 18), "balance after transfer")
+      {
+        const { value } = await inst.proxy.query(accounts[3])
+        expect(value).is.bignumber.equal('0', "contribution right after receiving stake")
+      }
+      {
+        const tx = await inst.proxy.harvest(0, { from: accounts[3] })
+        const { value } = tx.receipt.logs.find(l => l.event === 'Harvest').args
+        expect(value).is.bignumber.equal('0', "harveset right after receiving stake")
+      }
+      await time.increase(24*60*60)
+      {
+        const { value } = await inst.proxy.query(accounts[3])
+        expect(value).is.bignumber.equal(decShift(4*24*60*60, 18), "contribution after a while")
+      }
+      {
+        const tx = await inst.proxy.harvest(0, { from: accounts[3] })
+        const { value } = tx.receipt.logs.find(l => l.event === 'Harvest').args
+        expect(value).is.bignumber.gt('0', "harveset after a while")
+      }
+    })
+
+    it("ignored address", async() => {
+      const a = await inst.proxy.totalSupply()
+      await inst.proxy.ignoreAddress([accounts[4]], true, { from: admin })
+      await inst.proxy.transfer(accounts[4], decShift(13, 18), { from: accounts[5] })
+      const b = await inst.proxy.totalSupply()
+      expect(a.sub(b)).is.bignumber.equal(decShift(13, 18), "after transfer to ignored address")
+      await inst.proxy.transfer(accounts[6], decShift(6, 18), { from: accounts[4] })
+      const c = await inst.proxy.totalSupply()
+      expect(c.sub(b)).is.bignumber.equal(decShift(6, 18), "after transfer from ignored address")
+    })
+
+    it("revert all changes", async() => {
+      await snapshot.revert(ss)
+    })
+  })
+
   describe('timelock', () => {
     it("!admin without timelock", async() => {
       await expectRevert(inst.proxy.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")
