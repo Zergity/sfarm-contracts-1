@@ -14,10 +14,10 @@ module.exports = async function(deployer, network, accounts) {
 
     const admin = accounts[0]
 
-    const Proxy = artifacts.require('./Proxy.sol');
-    const Timelock = artifacts.require('./Timelock.sol')
-    const Token = artifacts.require('./Token.sol');
-    const SFarm = artifacts.require('./SFarm.sol');
+    const Proxy = artifacts.require('Proxy.sol');
+    const Timelock = artifacts.require('Timelock.sol')
+    const Token = artifacts.require('Token.sol');
+    const SFarm = artifacts.require('SFarm.sol');
 
     await Promise.all([
         deployer.deploy(Proxy, admin),

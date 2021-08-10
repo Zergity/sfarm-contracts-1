@@ -20,13 +20,26 @@ const ROUTER_EARN_TOKEN             = 1 << 0;
 const ROUTER_FARM_TOKEN             = 1 << 1;
 const ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;     // router that always use msg.sender as recipient
 
-const ERC20 = artifacts.require('ERC20PresetMinterPauser');
+const Proxy = artifacts.require('Proxy');
 const SFarm = artifacts.require('SFarm');
+const Token = artifacts.require('Token');
+const Timelock = artifacts.require('Timelock');
+
+const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const Factory = artifacts.require('UniswapV2Factory');
 const AuthorizeRouter = artifacts.require('UniswapV2Router01');
 const Pair = artifacts.require('UniswapV2Pair');
 
-const ABIs = [ ERC20, SFarm, Factory, AuthorizeRouter, Pair ]
+// const Proxy_ABIS = [ Proxy, SFarm, Token, Timelock ]
+//   .reduce((abi, a) => abi.concat(a.abi), [])
+//   .reduce((items, item) => {
+//     if (!items.some(({name}) => name === item.name)) {
+//       items.push(item)
+//     }
+//     return items
+//   }, [])
+
+const ABIs = [ Proxy, SFarm, Token, Timelock, Factory, AuthorizeRouter, Pair ]
   .reduce((abi, a) => abi.concat(a.abi), [])
   .reduce((items, item) => {
     if (!items.some(({name}) => name === item.name)) {
@@ -50,10 +63,36 @@ contract("SFarm", accounts => {
   const admin = accounts[1]
 
   before('should our contracts be deployed', async () => {
-    inst.earn = await ERC20.new('ezDeFi', 'ZD')
-    expect(inst.earn, 'contract not deployed: ZD').to.not.be.null
-    inst.farm = await SFarm.new(inst.earn.address, admin, decShift(0.1, 18), 7*24*60*60)
-    expect(inst.farm, 'contract not deployed: SFarm').to.not.be.null
+    inst.earn = await ERC20.new('ezDeFi', 'LZ')
+    expect(inst.earn, 'contract not deployed: LZ').to.not.be.null
+
+    inst.proxy = await Proxy.new(admin)
+    expect(inst.proxy, 'contract not deployed: proxy').to.not.be.null
+
+    const timelock = await Timelock.new()
+    await inst.proxy.upgradeContract(
+      timelock.address,
+      (await timelock.setDelay.request(7*24*60*60)).data,
+      { from: admin },
+    )
+    inst.timelock = await Timelock.at(inst.proxy.address)
+
+    const token = await Token.new()
+    await inst.proxy.upgradeContract(
+      token.address,
+      '0x',
+      { from: admin },
+    )
+    inst.token = await Token.at(inst.proxy.address)
+
+    const sfarm = await SFarm.new()
+    await inst.proxy.upgradeContract(
+      sfarm.address,
+      (await sfarm.initialize.request(inst.earn.address, admin, decShift(0.1, 18))).data,
+      { from: admin },
+    )
+    inst.farm = await SFarm.at(inst.proxy.address)
+
     for (let i = 0; i < accounts.length; ++i) {
       const coin = await ERC20.new('Stablecoin Number ' + i, 'USD'+i)
       inst.coin.push(coin)
