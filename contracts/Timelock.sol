@@ -7,9 +7,9 @@ import "./lib/SafeMath.sol";
 contract Timelock is Upgradable, DataStructure {
     using SafeMath for uint;
 
-    uint public constant GRACE_PERIOD = 14 days;
-    uint public constant MINIMUM_DELAY = 2 days;
-    uint public constant MAXIMUM_DELAY = 30 days;
+    uint constant GRACE_PERIOD = 14 days;
+    uint constant MINIMUM_DELAY = 2 days;
+    uint constant MAXIMUM_DELAY = 30 days;
 
     function setDelay(uint delay_) public onlyAdmin {
         require(delay_ >= MINIMUM_DELAY, "Timelock::setDelay: Delay must exceed minimum delay.");
@@ -69,13 +69,10 @@ contract Timelock is Upgradable, DataStructure {
 
     // DO NOT EDIT: auto-generated function
     function funcSelectors() external view override returns (bytes4[] memory signs) {
-        signs = new bytes4[](7);
-        signs[0] = 0xc1a287e2;		// GRACE_PERIOD()
-        signs[1] = 0x7d645fab;		// MAXIMUM_DELAY()
-        signs[2] = 0xb1b43ae5;		// MINIMUM_DELAY()
-        signs[3] = 0xe177246e;		// setDelay(uint256)
-        signs[4] = 0x3a66f901;		// queueTransaction(address,uint256,string,bytes,uint256)
-        signs[5] = 0x591fcdfe;		// cancelTransaction(address,uint256,string,bytes,uint256)
-        signs[6] = 0x0825f38f;		// executeTransaction(address,uint256,string,bytes,uint256)
+        signs = new bytes4[](4);
+        signs[0] = 0xe177246e;		// setDelay(uint256)
+        signs[1] = 0x3a66f901;		// queueTransaction(address,uint256,string,bytes,uint256)
+        signs[2] = 0x591fcdfe;		// cancelTransaction(address,uint256,string,bytes,uint256)
+        signs[3] = 0x0825f38f;		// executeTransaction(address,uint256,string,bytes,uint256)
     }
 }
