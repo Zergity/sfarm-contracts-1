@@ -201,7 +201,7 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
         _burn(sender, amount);
-        _mint(sender, amount);
+        _mint(recipient, amount, false);
         emit Transfer(sender, recipient, amount);
     }
 

@@ -83,10 +83,10 @@ contract DataStructure {
         _;
     }
 
-    function _mint(address account, uint amount) internal {
-        stakes[account] = stakes[account].deposit(amount);
+    function _mint(address account, uint amount, bool lock) internal {
+        stakes[account] = stakes[account].deposit(amount, lock);
         if (!ignoredAddresses[account]) {
-            total = total.deposit(amount);
+            total = total.deposit(amount, lock);
         }
     }
 

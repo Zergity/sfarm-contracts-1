@@ -39,12 +39,15 @@ library StakeLib {
     }
 
     // add a stake lock duration prevent griefing attack
-    function deposit(Stake memory a, uint amount) internal view returns (Stake memory) {
+    function deposit(Stake memory a, uint amount, bool lock) internal view returns (Stake memory) {
         uint s; uint t;
         if (a.t == MAX_T) {
             // av = a.s
             s = amount;
-            t = block.timestamp.sub(a.s/amount).add(STAKE_LOCK);
+            t = block.timestamp.sub(a.s/amount);
+            if (lock) {
+                t = t.add(STAKE_LOCK);
+            }
         } else {
             s = a.s.add(amount);
             if (block.timestamp >= a.t) {
@@ -54,7 +57,10 @@ library StakeLib {
                 uint av = a.t.sub(block.timestamp).mul(a.s);
                 t = block.timestamp.add(av/s);
             }
-            t = t.add(STAKE_LOCK.mul(amount)/s);   // this could shift to a future time, which require the lock before stake can be withdraw again
+            if (lock) {
+                // this could shift to a future time, which require the lock before stake can be withdraw again
+                t = t.add(STAKE_LOCK.mul(amount)/s);
+            }
         }
         require(s <= MAX_S, "StakeLib: addition stake overflow");
         require(t <= MAX_T, "StakeLib: addition time overflow");
