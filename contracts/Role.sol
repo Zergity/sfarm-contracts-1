@@ -31,7 +31,13 @@ contract Role is Upgradable, DataStructure {
     function ignoreAddress(address[] calldata accounts, bool ignore) external timelocked {
         for (uint i = 0; i < accounts.length; ++i) {
             address account = accounts[i];
+            require(ignoredAddresses[account] != ignore, "ignore flag unchanged");
             ignoredAddresses[account] = ignore;
+            if (ignore) {
+                ignoredSupply += _balanceOf(account);
+            } else {
+                ignoredSupply -= _balanceOf(account);
+            }
             emit AddressIngored(account, ignore);
         }
     }

@@ -272,14 +272,22 @@ contract("bank", accounts => {
     })
 
     it("ignored address", async() => {
-      const a = await inst.proxy.totalSupply()
+      await inst.proxy.transfer(accounts[4], decShift(4, 18), { from: accounts[5] })
+      const z = await inst.proxy.totalSupply()
       await inst.proxy.ignoreAddress([accounts[4]], true, { from: admin })
+      await expectRevert(inst.proxy.ignoreAddress([accounts[4]], true, { from: admin }), "ignore flag unchanged")
+      const a = await inst.proxy.totalSupply()
+      expect(z.sub(a)).is.bignumber.equal(decShift(4, 18), "after ignoring address with balance")
       await inst.proxy.transfer(accounts[4], decShift(13, 18), { from: accounts[5] })
       const b = await inst.proxy.totalSupply()
-      expect(a.sub(b)).is.bignumber.equal(decShift(13, 18), "after transfer to ignored address")
+      expect(a.sub(b)).is.bignumber.equal(decShift(13, 18), "after transfering to ignored address")
       await inst.proxy.transfer(accounts[6], decShift(6, 18), { from: accounts[4] })
       const c = await inst.proxy.totalSupply()
-      expect(c.sub(b)).is.bignumber.equal(decShift(6, 18), "after transfer from ignored address")
+      expect(c.sub(b)).is.bignumber.equal(decShift(6, 18), "after transfering from ignored address")
+      await inst.proxy.ignoreAddress([accounts[4]], false, { from: admin })
+      await expectRevert(inst.proxy.ignoreAddress([accounts[4]], false, { from: admin }), "ignore flag unchanged")
+      const d = await inst.proxy.totalSupply()
+      expect(d).is.bignumber.equal(z, "after un-ignoring address with balance")
     })
 
     it("revert all changes", async() => {
