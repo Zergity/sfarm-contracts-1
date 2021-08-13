@@ -1,10 +1,11 @@
-require('dotenv').config() 
-const { ethers } = require('ethers');
+const dotenv = require('dotenv')
+dotenv.config()
 const { decShift } = require('../tools/lib/big');
 
 // const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 module.exports = async function(deployer, network, accounts) {
+    dotenv.config({ path: `.env.${network}` })
     if (network === 'local') {
         return
     }
@@ -14,38 +15,42 @@ module.exports = async function(deployer, network, accounts) {
 
     const admin = accounts[0]
 
-    const Proxy = artifacts.require('Proxy.sol');
-    const Timelock = artifacts.require('Timelock.sol')
-    const Token = artifacts.require('Token.sol');
-    const Role = artifacts.require('Role.sol');
-    const Bank = artifacts.require('Bank.sol');
+    const arts = {}
+    const inst = {}
 
-    await Promise.all([
-        deployer.deploy(Proxy, admin, process.env.EARN_TOKEN),
-        deployer.deploy(Token),
-        deployer.deploy(Timelock),
-        deployer.deploy(Role),
-        deployer.deploy(Bank),
-    ])
+    const contracts = [
+        { name: 'Proxy', ctorParams: [admin, process.env.EARN_TOKEN] },
+        { name: 'Token' },
+        { name: 'Timelock' },
+        { name: 'Role' },
+        { name: 'Bank' },
+    ]
 
-    const [ proxy, token, timelock, role, bank ] = await Promise.all([
-        Proxy.deployed(),
-        Token.deployed(),
-        Timelock.deployed(),
-        Role.deployed(),
-        Bank.deployed(),
-    ])
+    await Promise.all(
+        contracts.map(async contract => {
+            const { name } = contract
+            arts[name] = artifacts.require(name)
+            if (process.env[name]) {
+                inst[name] = await arts[name].at(process.env[name])
+            } else {
+                const ctorParams = contract.ctorParams || []
+                await deployer.deploy(arts[name], ...ctorParams)
+                inst[name] = await arts[name].deployed()
+            }
+            return
+        })
+    )
 
     const txs = await Promise.all([
-        proxy.upgradeContract(token.address, '0x'),
+        inst.Proxy.upgradeContract(inst.Token.address, '0x'),
 
-        timelock.setDelay.request(7*24*60*60)
-            .then(({data}) => proxy.upgradeContract(timelock.address, data)),
+        inst.Timelock.setDelay.request(7*24*60*60)
+            .then(({data}) => inst.Proxy.upgradeContract(inst.Timelock.address, data)),
 
-        role.setSubsidy.request(admin, decShift(0.1, 18))
-            .then(({data}) => proxy.upgradeContract(role.address, data)),
+        inst.Role.setSubsidy.request(admin, decShift(0.1, 18))
+            .then(({data}) => inst.Proxy.upgradeContract(inst.Role.address, data)),
 
-        proxy.upgradeContract(bank.address, '0x'),
+        inst.Proxy.upgradeContract(inst.Bank.address, '0x'),
     ])
 
     // test upgrade

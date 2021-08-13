@@ -3,4 +3,4 @@ build
 yarn-error.log
 
 # dotenv environment variables file
-.env
+.env.local

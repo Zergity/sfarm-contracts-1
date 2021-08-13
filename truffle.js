@@ -1,5 +1,5 @@
-require('dotenv').config() 
-const PrivateKeyProvider = require('truffle-privatekey-provider')
+const dotenv = require('dotenv')
+dotenv.config()
 
 module.exports = {
     networks: {
@@ -15,7 +15,12 @@ module.exports = {
             gasPrice: process.env.GAS_PRICE,
         },
         mainnet: {
-            provider: () => new PrivateKeyProvider(process.env.DEPLOYER_KEY, process.env.RPC),
+            provider: () => {
+                const HOMEDIR = require('os').homedir();
+                dotenv.config({ path: `${HOMEDIR}/.env.home` })
+                const PrivateKeyProvider = require('truffle-privatekey-provider')
+                return new PrivateKeyProvider(process.env.DEPLOYER_KEY, process.env.RPC)
+            },
             network_id: process.env.NET_ID,
             gasPrice: process.env.GAS_PRICE,
             gas: 30000000,
