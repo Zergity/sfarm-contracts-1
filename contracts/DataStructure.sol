@@ -75,6 +75,7 @@ contract DataStructure {
     event Harvest(address indexed sender, uint value, uint subsidy);
 
     event FarmerExec(address indexed receivingToken, address indexed router, bytes4 indexed func);
+    event ProcessOutstandingToken(address indexed router, bytes4 indexed func);
 
     // admin operations require no locktime when the total stake in the farm not more than this value
     uint constant LOCK_FREE_STAKE = 10000 * 10**18;

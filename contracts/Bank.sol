@@ -157,6 +157,8 @@ contract Bank is Upgradable, DataStructure {
         require(tokens.length == stakeTokensCount, "incorrect tokens count");
         require(_isRouterForEarnToken(authorizedRouters[router]), "unauthorized router");
 
+        emit ProcessOutstandingToken(router, _funcSign(input));
+
         uint lastBalance = IERC20(earnToken).balanceOf(address(this));
 
         (bool success,) = router.call(input);
