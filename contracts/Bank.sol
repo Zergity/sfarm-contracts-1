@@ -29,6 +29,7 @@ contract Bank is Upgradable, DataStructure {
     function deposit(address token, uint amount) external onlyStakeToken(token) {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         _mint(msg.sender, amount, true);
+        emit Transfer(address(0), msg.sender, amount);
         emit Deposit(msg.sender, token, amount);
     }
 
@@ -91,6 +92,7 @@ contract Bank is Upgradable, DataStructure {
             }
         }
 
+        emit Transfer(msg.sender, address(0), amount);
         emit Withdraw(msg.sender, token, amount);
     }
 
