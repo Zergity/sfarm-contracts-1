@@ -19,6 +19,9 @@ contract DataStructure {
     uint public delay;
     mapping (bytes32 => bool) public queuedTransactions;
 
+    // admin operations require no locktime when the total stake in the farm not more than this value
+    uint constant LOCK_FREE_STAKE = 10000 * 10**18;
+
     event NewDelay(uint indexed newDelay);
     event CancelTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature,  bytes data, uint eta);
     event ExecuteTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature,  bytes data, uint eta);
@@ -33,11 +36,14 @@ contract DataStructure {
     // SFarm
     address earnToken;  // reward token (ZD)
 
+    // Subsidty
     uint64  subsidyRate;        // [0,1) with 18 decimals
     address subsidyRecipient;
 
     uint constant SUBSIDY_UNIT = 10**18;
+    event NewSubsidy(address recipient, uint rate);
 
+    // Roles and Configs
     uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
 
     mapping(address => bool)                    authorizedAdmins;
@@ -54,34 +60,32 @@ contract DataStructure {
     uint constant ROUTER_FARM_TOKEN             = 1 << 1;   // for stake and intermediate tokens (LP, etc.)
     uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;   // router that always use msg.sender as recipient
 
-    mapping(address => Stake)   stakes;
-    Stake total;
-    using StakeLib for Stake;
-
-    uint                        ignoredSupply;
-    mapping (address => bool)   ignoredAddresses;   // set of addresses to be ignored from total supply
-    event AddressIngored(address account, bool ignored);
-
-    bool _paused;
-    event Paused(bool indexed enable, address account);
-
-    event NewSubsidy(address recipient, uint rate);
-
     event AuthorizeAdmin(address indexed admin, bool enable);
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
     event AuthorizeRouter(address indexed router, uint mask);
     event AuthorizeWithdrawalFunc(address indexed router, bytes4 indexed func, uint mask);
 
+    event FarmerExec(address indexed receivingToken, address indexed router, bytes4 indexed func);
+    event ProcessOutstandingToken(address indexed router, bytes4 indexed func);
+
+    // Stake and Contribution
+    mapping(address => Stake)   stakes;
+    Stake total;
+    using StakeLib for Stake;
+
     event Deposit(address indexed sender, address indexed token, uint value);
     event Withdraw(address indexed sender, address indexed token, uint value);
     event Harvest(address indexed sender, uint value, uint subsidy);
 
-    event FarmerExec(address indexed receivingToken, address indexed router, bytes4 indexed func);
-    event ProcessOutstandingToken(address indexed router, bytes4 indexed func);
+    // Supply
+    uint                        ignoredSupply;
+    mapping (address => bool)   ignoredAddresses;   // set of addresses to be ignored from total supply
+    event AddressIngored(address account, bool ignored);
 
-    // admin operations require no locktime when the total stake in the farm not more than this value
-    uint constant LOCK_FREE_STAKE = 10000 * 10**18;
+    // Pausable
+    bool _paused;
+    event Paused(bool indexed enable, address account);
 
     /**
      * @dev Modifier to make a function callable only when the contract is not paused.
