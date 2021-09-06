@@ -295,6 +295,53 @@ contract("bank", accounts => {
     })
   })
 
+  describe("Pausable", () => {
+    let ss
+    it("setup some balance", async() => {
+      ss = await snapshot.take()
+
+      await inst.coin[0].mint(accounts[5], decShift(100, 18))
+      await inst.proxy.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+
+      await inst.coin[1].mint(accounts[6], decShift(33, 18))
+      await inst.proxy.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+
+      await expectRevert(
+        inst.proxy.transfer(accounts[6], decShift(13, 18), { from: accounts[5] }),
+        "locked",
+      )
+
+      await time.increase(48*60*60)
+    })
+
+    it("pause permission", async() => {
+      await expectRevert(inst.proxy.pause(true), "!admin")
+      await inst.proxy.pause(true, { from: admin })
+      await expectRevert(inst.proxy.pause(true, { from: admin }), "Pausable: unchanged")
+      await expectRevert(inst.proxy.pause(false), "!admin")
+      await inst.proxy.pause(false, { from: admin })
+      await expectRevert(inst.proxy.pause(false, { from: admin }), "Pausable: unchanged")
+    })
+
+    it("pause effect", async() => {
+      await inst.proxy.pause(true, { from: admin })
+
+      await expectRevert(inst.proxy.transfer(accounts[3], decShift(4, 18), { from: accounts[6] }), "Pausable: paused" )
+      await expectRevert(inst.proxy.harvest(0, { from: accounts[5] }), "Pausable: paused" )
+      await expectRevert(inst.proxy.withdraw(inst.coin[0].address, decShift(13, 18), [], { from: accounts[5] }), "Pausable: paused")
+
+      await inst.proxy.pause(false, { from: admin })
+
+      await inst.proxy.transfer(accounts[3], decShift(4, 18), { from: accounts[6] })
+      await inst.proxy.harvest(0, { from: accounts[5] })
+      await inst.proxy.withdraw(inst.coin[0].address, decShift(13, 18), [], { from: accounts[5] })
+    })
+
+    it("revert all changes", async() => {
+      await snapshot.revert(ss)
+    })
+  })
+
   describe('timelock', () => {
     it("!admin without timelock", async() => {
       await expectRevert(inst.proxy.authorizeTokens(inst.coin.map(c => c.address + TOKEN_LEVEL_STAKE)), "!admin")

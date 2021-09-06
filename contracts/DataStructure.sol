@@ -62,6 +62,9 @@ contract DataStructure {
     mapping (address => bool)   ignoredAddresses;   // set of addresses to be ignored from total supply
     event AddressIngored(address account, bool ignored);
 
+    bool _paused;
+    event Paused(bool indexed enable, address account);
+
     event NewSubsidy(address recipient, uint rate);
 
     event AuthorizeAdmin(address indexed admin, bool enable);
@@ -79,6 +82,18 @@ contract DataStructure {
 
     // admin operations require no locktime when the total stake in the farm not more than this value
     uint constant LOCK_FREE_STAKE = 10000 * 10**18;
+
+    /**
+     * @dev Modifier to make a function callable only when the contract is not paused.
+     *
+     * Requirements:
+     *
+     * - The contract must not be paused.
+     */
+    modifier whenNotPaused() {
+        require(!_paused, "Pausable: paused");
+        _;
+    }
 
     modifier onlyAdmin {
         require(authorizedAdmins[msg.sender], "!admin");

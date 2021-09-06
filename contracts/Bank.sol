@@ -47,7 +47,7 @@ contract Bank is Upgradable, DataStructure {
         address     token,
         uint        amount,
         paramRL[]   calldata rls
-    ) external onlyStakeToken(token) {
+    ) external whenNotPaused onlyStakeToken(token) {
         _burn(msg.sender, amount);
 
         uint[] memory lastBalance = new uint[](rls.length);
@@ -97,7 +97,7 @@ contract Bank is Upgradable, DataStructure {
     }
 
     // harvest ZD
-    function harvest(uint scale) external returns (uint earn) {
+    function harvest(uint scale) external whenNotPaused returns (uint earn) {
         Stake memory stake = stakes[msg.sender];
         uint value = stake.value();
         uint totalValue = total.value();
