@@ -977,6 +977,34 @@ contract("bank", accounts => {
       ), "earn token balance unchanged")
     })
 
+    it("duplicate tokens", async() => {
+      const duplicatedCoinList = Object.values(inst.coin).map(c => c.address)
+      duplicatedCoinList[duplicatedCoinList.length-1] = duplicatedCoinList[0]
+      await expectRevert(inst.proxy.farmerProcessOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          decShift(1, 18), 0,
+          [inst.coin[3].address, inst.earn.address ],
+          inst.proxy.address, LARGE_VALUE,
+        ),
+        duplicatedCoinList,
+        { from: farmer },
+      ), "duplicate tokens")
+    })
+
+    it("incorrect tokens count", async() => {
+      const duplicatedCoinList = Object.values(inst.coin).map(c => c.address)
+      duplicatedCoinList.push(inst.earn.address)
+      await expectRevert(inst.proxy.farmerProcessOutstandingToken(
+        ...await execParams(inst.router[0], "swapExactTokensForTokens",
+          decShift(1, 18), 0,
+          [inst.coin[3].address, inst.earn.address ],
+          inst.proxy.address, LARGE_VALUE,
+        ),
+        duplicatedCoinList,
+        { from: farmer },
+      ), "incorrect tokens count")
+    })
+
     it("outstanding token", async() => {
       await inst.proxy.farmerProcessOutstandingToken(
         ...await execParams(inst.router[0], "swapExactTokensForTokens",
