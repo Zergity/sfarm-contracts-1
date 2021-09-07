@@ -251,8 +251,8 @@ contract("bank", accounts => {
       await inst.proxy.transfer(accounts[3], decShift(4, 18), { from: accounts[6] })
       expect(await inst.proxy.balanceOf(accounts[3])).is.bignumber.equal(decShift(4, 18), "balance after transfer")
       {
-        const { value } = await inst.proxy.query(accounts[3])
-        expect(value).is.bignumber.equal('0', "contribution right after receiving stake")
+        const { contribution } = await inst.proxy.query(accounts[3])
+        expect(contribution).is.bignumber.lte('0', "contribution right after receiving stake")
       }
       {
         const tx = await inst.proxy.harvest(0, { from: accounts[3] })
@@ -261,8 +261,8 @@ contract("bank", accounts => {
       }
       await time.increase(24*60*60)
       {
-        const { value } = await inst.proxy.query(accounts[3])
-        expect(value).is.bignumber.equal(decShift(4*24*60*60, 18), "contribution after a while")
+        const { contribution } = await inst.proxy.query(accounts[3])
+        expect(contribution).is.bignumber.equal(decShift(4*24*60*60, 18), "contribution after a while")
       }
       {
         const tx = await inst.proxy.harvest(0, { from: accounts[3] })
@@ -475,6 +475,8 @@ contract("bank", accounts => {
 
       await time.increase(24*60*60-TIME_TOLLERANCE);
       await expectRevert(inst.proxy.withdraw(inst.coin[0].address, 1, []), 'locked', 'withdraw: locked')
+      const { contribution } = await inst.proxy.query(accounts[0]);
+      expect(contribution).is.bignumber.lt('0', "locked contribution")
       await time.increase(TIME_TOLLERANCE);
       await inst.proxy.withdraw(inst.coin[0].address, decShift(13, 18), [])
       expect(await inst.coin[0].balanceOf(accounts[0])).to.be.bignumber.equal(decShift(60, 18), "balance intact")

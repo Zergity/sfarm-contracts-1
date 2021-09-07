@@ -180,17 +180,17 @@ contract Bank is Upgradable, DataStructure {
         require(total.stake() <= totalBalance, "over proccessed");
     }
 
-    function query(address a) external view returns (
+    function query(address a) public view returns (
         uint stake,
-        uint value,
+        int contribution,
         uint totalStake,
-        uint totalValue
+        int totalContribution
     ) {
         return (
             stakes[a].stake(),
-            stakes[a].safeValue(),
+            stakes[a].rawValue(),
             total.stake(),
-            total.safeValue()
+            total.rawValue()
         );
     }
 
