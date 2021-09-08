@@ -28,7 +28,7 @@ const Bank = artifacts.require('Bank');
 
 const ERC20 = artifacts.require('ERC20PresetMinterPauser');
 const Factory = artifacts.require('UniswapV2Factory');
-const AuthorizeRouter = artifacts.require('UniswapV2Router01');
+const UniswapV2Router01 = artifacts.require('UniswapV2Router01');
 const Pair = artifacts.require('UniswapV2Pair');
 
 Proxy.abi = [ Proxy, Token, Timelock, Role, Bank ]
@@ -40,7 +40,7 @@ Proxy.abi = [ Proxy, Token, Timelock, Role, Bank ]
     return items
   }, [])
 
-const ABIs = [ Proxy, Factory, AuthorizeRouter, Pair ]
+const ABIs = [ Proxy, Factory, UniswapV2Router01, Pair ]
   .reduce((abi, a) => abi.concat(a.abi), [])
   .reduce((items, item) => {
     if (!items.some(({name}) => name === item.name)) {
@@ -111,7 +111,7 @@ contract("bank", accounts => {
   before('should 3rd party contracts be deployed', async () => {
     inst.weth = await ERC20.new('Wrapped ETH', 'WETH');
     const factory = await Factory.new(accounts[0]);
-    inst.router[0] = await AuthorizeRouter.new(factory.address, inst.weth.address)
+    inst.router[0] = await UniswapV2Router01.new(factory.address, inst.weth.address)
   });
 
   before("init liquidity routers", async() => {
