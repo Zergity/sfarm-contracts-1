@@ -87,6 +87,11 @@ contract DataStructure {
     bool _paused;
     event Paused(bool indexed enable, address account);
 
+    // Referral
+    address     refContract;
+    uint32[2]   refRates;  // [0,1) with 9 decimals
+    uint        constant REF_RATE_UNIT = 10**9;
+
     /**
      * @dev Modifier to make a function callable only when the contract is not paused.
      *
