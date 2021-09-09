@@ -38,7 +38,8 @@ library StakeLib {
         if (a.t == MAX_T) {
             // av = a.s
             s = amount;
-            t = block.timestamp.sub(a.s/amount);
+            // revert if too many un-harvested contribution here
+            t = block.timestamp.sub(a.s/amount, "too many unharvested");
             if (lock) {
                 t = t.add(STAKE_LOCK);
             }

@@ -134,7 +134,7 @@ contract Bank is Upgradable, DataStructure {
             earn = earn.sub(refEarn);
 
             citizen = ICitizen(refContract).getReferrer(citizen);
-            if (citizen == address(0x0) || citizen == subsidyRecipient) {
+            if (citizen == address(0x0) || citizen == subsidyRecipient || stakes[citizen].stake() < refStakes[i]) {
                 subsidyEarn = subsidyEarn.add(refEarn);
             } else {
                 IERC20(earnToken).transfer(citizen, refEarn);

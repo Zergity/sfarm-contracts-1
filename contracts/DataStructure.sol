@@ -89,8 +89,9 @@ contract DataStructure {
 
     // Referral
     address     refContract;
-    uint32[2]   refRates;  // [0,1) with 9 decimals
     uint        constant REF_RATE_UNIT = 10**9;
+    uint32[2]   refRates;       // [0,1) with 9 decimals
+    uint[2]     refStakes;
 
     /**
      * @dev Modifier to make a function callable only when the contract is not paused.

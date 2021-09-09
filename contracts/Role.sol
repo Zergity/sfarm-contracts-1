@@ -126,8 +126,9 @@ contract Role is Upgradable, DataStructure {
         refContract = adr;
     }
 
-    function setReferralRates(uint32[2] calldata rates) external timelocked {
+    function setReferralLevels(uint32[2] calldata rates, uint[2] calldata stakes) external timelocked {
         refRates = rates;
+        refStakes = stakes;
     }
 
     // DO NOT EDIT: auto-generated function
@@ -143,6 +144,6 @@ contract Role is Upgradable, DataStructure {
         signs[7] = 0x76f95301;		// authorizeWithdrawalFuncs(bytes32[])
         signs[8] = 0x02329a29;		// pause(bool)
         signs[9] = 0x06ad5a47;		// setReferralContract(address)
-        signs[10] = 0x76fd2bac;		// setReferralRates(uint32[2])
+        signs[10] = 0x9953b158;		// setReferralLevels(uint32[2],uint256[2])
     }
 }

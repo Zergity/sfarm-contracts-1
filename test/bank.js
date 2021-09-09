@@ -1029,9 +1029,9 @@ contract("bank", accounts => {
     })
 
     it("setup", async() => {
-      await inst.proxy.setReferralContract(inst.citizen.address, { from: admin })
-      await adminExec("setReferralRates", [decShift(0.05, 9), decShift(0.025, 9)], { from: admin })
       await inst.citizen.setLzPool(inst.proxy.address)
+      await inst.proxy.setReferralContract(inst.citizen.address, { from: admin })
+      await adminExec("setReferralLevels", [decShift(0.05, 9), decShift(0.025, 9)], [0, 0], { from: admin })
     })
 
     it("harvest with no referrer", async() => {
@@ -1069,13 +1069,13 @@ contract("bank", accounts => {
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
         .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
 
-      const expectedRef0 = value.div(new BN(18))
+      const expectedRef = value.div(new BN(9*2))
 
       const after = await inst.earn.balanceOf(accounts[0])
-      const ref0 = after.sub(before)
-      expect(ref0).is.bignumber
-        .at.most(expectedRef0, "harvest referral earn at most")
-        .at.least(expectedRef0.mul(new BN(999)).div(new BN(1000)), "harvest referral earn at least")
+      const ref = after.sub(before)
+      expect(ref).is.bignumber
+        .at.most(expectedRef, "harvest referral earn at most")
+        .at.least(expectedRef.mul(new BN(999)).div(new BN(1000)), "harvest referral earn at least")
 
       await snapshot.revert(ss)
     })
@@ -1089,8 +1089,10 @@ contract("bank", accounts => {
 
       await time.increase(48*60*60)
 
-      const before0 = await inst.earn.balanceOf(accounts[4])
-      const before1 = await inst.earn.balanceOf(accounts[3])
+      const before = {
+        4: await inst.earn.balanceOf(accounts[4]),
+        3: await inst.earn.balanceOf(accounts[3]),
+      }
 
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
@@ -1099,65 +1101,111 @@ contract("bank", accounts => {
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
         .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
 
-      const expectedRef0 = value.div(new BN(9*2))
-      const after0 = await inst.earn.balanceOf(accounts[4])
-      const ref0 = after0.sub(before0)
-      expect(ref0).is.bignumber
-        .at.most(expectedRef0, "harvest referral earn 0 at most")
-        .at.least(expectedRef0.mul(new BN(999)).div(new BN(1000)), "harvest referral earn 0 at least")
-
-      const expectedRef1 = value.div(new BN(9*2*2))
-      const after1 = await inst.earn.balanceOf(accounts[3])
-      const ref1 = after1.sub(before1)
-      console.error(expectedRef0.toString(), expectedRef1.toString())
-      expect(ref1).is.bignumber
-        .at.most(expectedRef1, "harvest referral earn 1 at most")
-        .at.least(expectedRef1.mul(new BN(999)).div(new BN(1000)), "harvest referral earn 1 at least")
+      const expectedRef = {
+        4: value.div(new BN(9*2)),
+        3: value.div(new BN(9*2*2)),
+      }
+  
+      for (const i of [4, 3]) {
+        const after = await inst.earn.balanceOf(accounts[i])
+        const ref = after.sub(before[i])
+        expect(ref).is.bignumber
+          .at.most(expectedRef[i], `harvest referral earn ${i} at most`)
+          .at.least(expectedRef[i].mul(new BN(999)).div(new BN(1000)), `harvest referral earn {i} at least`)
+      }
   
       await snapshot.revert(ss)
     })
 
-    // it("harvest with stake withdrawn", async() => {
-    //   await inst.coin[0].mint(accounts[5], decShift(100, 18))
-    //   await inst.proxy.deposit(inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+    it("2 referrers with stake requirement", async() => {
+      const ss = await snapshot.take()
 
-    //   await inst.coin[1].mint(accounts[6], decShift(33, 18))
-    //   await inst.proxy.deposit(inst.coin[1].address, decShift(33, 18), { from: accounts[6] })
+      await inst.coin[0].mint(accounts[5], decShift(100, 18))
+      await inst.proxy.referAndDeposit(accounts[4], inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+      await inst.proxy.referAndDeposit(accounts[3], ZERO_ADDRESS, 0, { from: accounts[4] })
 
-    //   await time.increase(48*60*60)
-    //   await inst.proxy.withdraw(inst.coin[0].address, decShift(100, 18), [], { from: accounts[5] })
-    //   await time.increase(24*60*60)
-    //   await inst.proxy.withdraw(inst.coin[1].address, decShift(33, 18), [], { from: accounts[6] })
+      await time.increase(48*60*60)
 
-    //   await time.increase(13*60*60)
+      const before = {
+        4: await inst.earn.balanceOf(accounts[4]),
+        3: await inst.earn.balanceOf(accounts[3]),
+      }
 
-    //   // randomly deposit some more for other account
-    //   await inst.coin[0].mint(accounts[0], decShift(13, 18))
-    //   await inst.proxy.deposit(inst.coin[0].address, decShift(13, 18), { from: accounts[0] })
+      const tx = await inst.proxy.harvest(0, { from: accounts[5] })
+      const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
+      const expectedSubsidy = value.div(new BN(9))
+      expect(subsidy).is.bignumber
+        .at.most(expectedSubsidy, "harvest subsidy rate at most")
+        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
 
-    //   await time.increase(60*60*60)
+      await adminExec("setReferralLevels",
+        [decShift(0.05, 9), decShift(0.025, 9)],
+        [decShift(1, 18), decShift(10, 18)],
+        { from: admin })
 
-    //   const tx = await inst.proxy.harvest(0, { from: accounts[5] })
-    //   const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
-    //   const expectedSubsidy = value.div(new BN(9))
-    //   expect(subsidy).is.bignumber
-    //     .at.most(expectedSubsidy, "harvest subsidy rate at most")
-    //     .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+      const expectedRef = {
+        4: value.div(new BN(9*2)),
+        3: value.div(new BN(9*2*2)),
+      }
 
-    //   await time.increase(24*60*60)
+      for (const i of [4, 3]) {
+        const after = await inst.earn.balanceOf(accounts[i])
+        const ref = after.sub(before[i])
+        expect(ref).is.bignumber
+          .at.most(expectedRef[i], `harvest referral earn ${i} at most`)
+          .at.least(expectedRef[i].mul(new BN(999)).div(new BN(1000)), `harvest referral earn ${i} at least`)
+      }
+  
+      await snapshot.revert(ss)
+    })
 
-    //   const tx1 = await inst.proxy.harvest(13456789, { from: accounts[6] })
-    //   const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
-    //   const expectedSubsidy1 = value1.div(new BN(9))
-    //   expect(subsidy1).is.bignumber
-    //     .at.most(expectedSubsidy1, "harvest subsidy rate 1 at most")
-    //     .at.least(expectedSubsidy1.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate 1 at least")
+    it("2 referrers with not enough stake requirement", async() => {
+      const ss = await snapshot.take()
 
-    //   const expectdValue1 = value.mul(new BN(66)).div(new BN(100))
-    //   expect(value1).is.bignumber
-    //     .at.most(expectdValue1.mul(new BN(102)).div(new BN(100)), "harvest value by double the stake time at most")
-    //     .at.least(expectdValue1.mul(new BN(98)).div(new BN(100)), "harvest value by double the stake time at least")
-    // })
+      await adminExec("setReferralLevels",
+        [decShift(0.05, 9), decShift(0.025, 9)],
+        [decShift(1, 18), decShift(10, 18)],
+        { from: admin })
+
+      await inst.coin[1].mint(accounts[3], decShift(20, 18))
+      // TODO: move this "too many unharvested" test out
+      await expectRevert(inst.proxy.deposit(inst.coin[1].address, decShift(20, 18), { from: accounts[3] }), "too many unharvested")
+      await inst.proxy.harvest(0, { from: accounts[3] })
+      await inst.proxy.deposit(inst.coin[1].address, decShift(20, 18), { from: accounts[3] })
+  
+      await inst.coin[0].mint(accounts[5], decShift(100, 18))
+      await inst.proxy.referAndDeposit(accounts[4], inst.coin[0].address, decShift(100, 18), { from: accounts[5] })
+      await inst.proxy.referAndDeposit(accounts[3], ZERO_ADDRESS, 0, { from: accounts[4] })
+
+      await time.increase(48*60*60)
+
+      const before = {
+        4: await inst.earn.balanceOf(accounts[4]),
+        3: await inst.earn.balanceOf(accounts[3]),
+      }
+
+      const tx = await inst.proxy.harvest(0, { from: accounts[5] })
+      const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
+      const expectedSubsidy = value.div(new BN(9))
+      expect(subsidy).is.bignumber
+        .at.most(expectedSubsidy, "harvest subsidy rate at most")
+        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+
+      const expectedRef = {
+        4: new BN(0),
+        3: value.div(new BN(9*2*2)),
+      }
+
+      for (const i of [4, 3]) {
+        const after = await inst.earn.balanceOf(accounts[i])
+        const ref = after.sub(before[i])
+        expect(ref).is.bignumber
+          .at.most(expectedRef[i], `harvest referral earn ${i} at most`)
+          .at.least(expectedRef[i].mul(new BN(999)).div(new BN(1000)), `harvest referral earn ${i} at least`)
+      }
+  
+      await snapshot.revert(ss)
+    })
 
     it("revert referral changes", async() => {
       await snapshot.revert(ss)
