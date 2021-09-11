@@ -2,6 +2,7 @@ const moment = require('moment');
 const { expect } = require('chai');
 const { ethers } = require('ethers');
 const { time, expectRevert, expectEvent, BN } = require('@openzeppelin/test-helpers');
+const bn = (n) => new BN(n)
 const snapshot = require('./lib/snapshot');
 const { strip0x } = require('./lib/utils');
 const { decShift } = require('../tools/lib/big');
@@ -464,7 +465,7 @@ contract("bank", accounts => {
 
       await time.increase(48*60*60);
       await expectRevert(
-        inst.proxy.withdraw(inst.coin[0].address, new BN(decShift(60, 18)).sub(new BN(1)), []),
+        inst.proxy.withdraw(inst.coin[0].address, bn(decShift(60, 18)).sub(bn(1)), []),
         "ds-math-sub-underflow")
 
       await snapshot.revert(ss);
@@ -708,7 +709,7 @@ contract("bank", accounts => {
         inst.coin[0].address,
         ...await execParams(inst.router[0], 'removeLiquidity',
           inst.coin[0].address, inst.coin[1].address,
-          liquidity.add(new BN(1)),
+          liquidity.add(bn(1)),
           0, 0,
           inst.proxy.address, LARGE_VALUE,
         ), { from: farmer },
@@ -739,8 +740,8 @@ contract("bank", accounts => {
     it('setup liquidity', async() => {
       r3 = await inst.coin[3].balanceOf(inst.pair[3][4].address)
       r4 = await inst.coin[4].balanceOf(inst.pair[3][4].address)
-      b3 = r3.div(new BN(10))
-      b4 = r4.div(new BN(10))
+      b3 = r3.div(bn(10))
+      b4 = r4.div(bn(10))
 
       await inst.coin[3].mint(accounts[3], b3)
       await inst.proxy.deposit(inst.coin[3].address, b3, { from: accounts[3] })
@@ -763,10 +764,10 @@ contract("bank", accounts => {
     })
 
     it("add some coin buffer", async() => {
-      await inst.coin[3].mint(accounts[0], b3.div(new BN(100)))
-      await inst.proxy.deposit(inst.coin[3].address, b3.div(new BN(100)))
-      await inst.coin[4].mint(accounts[0], b4.div(new BN(100)))
-      await inst.proxy.deposit(inst.coin[4].address, b4.div(new BN(100)))
+      await inst.coin[3].mint(accounts[0], b3.div(bn(100)))
+      await inst.proxy.deposit(inst.coin[3].address, b3.div(bn(100)))
+      await inst.coin[4].mint(accounts[0], b4.div(bn(100)))
+      await inst.proxy.deposit(inst.coin[4].address, b4.div(bn(100)))
     })
 
     it("unauthorize router.function", async() => {
@@ -883,7 +884,7 @@ contract("bank", accounts => {
 
     it('double removeLiquidity', async() => {
       const liquidity = await inst.pair[3][4].balanceOf(inst.proxy.address)
-      const firstLiquidity = liquidity.div(new BN(3))
+      const firstLiquidity = liquidity.div(bn(3))
       const nextLiquidity = liquidity.sub(firstLiquidity)
 
       await inst.proxy.withdraw(inst.coin[3].address, b3, [
@@ -1045,10 +1046,10 @@ contract("bank", accounts => {
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
       const both = value.add(subsidy)
-      const expectedSubsidy = both.mul(new BN(175)).div(new BN(1000))
+      const expectedSubsidy = both.mul(bn(175)).div(bn(1000))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
       await snapshot.revert(ss)
     })
@@ -1066,18 +1067,18 @@ contract("bank", accounts => {
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
       const both = value.add(subsidy)
-      const expectedSubsidy = both.mul(new BN(125)).div(new BN(1000))
+      const expectedSubsidy = both.mul(bn(125)).div(bn(1000))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
-      const expectedRef = both.div(new BN(20))
+      const expectedRef = both.div(bn(20))
 
       const after = await inst.earn.balanceOf(accounts[0])
       const ref = after.sub(before)
       expect(ref).is.bignumber
         .at.most(expectedRef, "harvest referral earn at most")
-        .at.least(expectedRef.mul(new BN(999)).div(new BN(1000)), "harvest referral earn at least")
+        .at.least(expectedRef.mul(bn(999)).div(bn(1000)), "harvest referral earn at least")
 
       await snapshot.revert(ss)
     })
@@ -1098,14 +1099,14 @@ contract("bank", accounts => {
 
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
-      const expectedSubsidy = value.div(new BN(9))
+      const expectedSubsidy = value.div(bn(9))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
       const expectedRef = {
-        4: value.div(new BN(9*2)),
-        3: value.div(new BN(9*2*2)),
+        4: value.div(bn(9*2)),
+        3: value.div(bn(9*2*2)),
       }
   
       for (const i of [4, 3]) {
@@ -1113,7 +1114,7 @@ contract("bank", accounts => {
         const ref = after.sub(before[i])
         expect(ref).is.bignumber
           .at.most(expectedRef[i], `harvest referral earn ${i} at most`)
-          .at.least(expectedRef[i].mul(new BN(999)).div(new BN(1000)), `harvest referral earn {i} at least`)
+          .at.least(expectedRef[i].mul(bn(999)).div(bn(1000)), `harvest referral earn {i} at least`)
       }
   
       await snapshot.revert(ss)
@@ -1135,10 +1136,10 @@ contract("bank", accounts => {
 
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
-      const expectedSubsidy = value.div(new BN(9))
+      const expectedSubsidy = value.div(bn(9))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
       await adminExec("setReferralLevels",
         [decShift(0.05, 9), decShift(0.025, 9)],
@@ -1146,8 +1147,8 @@ contract("bank", accounts => {
         { from: admin })
 
       const expectedRef = {
-        4: value.div(new BN(9*2)),
-        3: value.div(new BN(9*2*2)),
+        4: value.div(bn(9*2)),
+        3: value.div(bn(9*2*2)),
       }
 
       for (const i of [4, 3]) {
@@ -1155,7 +1156,7 @@ contract("bank", accounts => {
         const ref = after.sub(before[i])
         expect(ref).is.bignumber
           .at.most(expectedRef[i], `harvest referral earn ${i} at most`)
-          .at.least(expectedRef[i].mul(new BN(999)).div(new BN(1000)), `harvest referral earn ${i} at least`)
+          .at.least(expectedRef[i].mul(bn(999)).div(bn(1000)), `harvest referral earn ${i} at least`)
       }
 
       await snapshot.revert(ss)
@@ -1189,14 +1190,14 @@ contract("bank", accounts => {
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
       const both = value.add(subsidy)
-      const expectedSubsidy = both.mul(new BN(150)).div(new BN(1000))
+      const expectedSubsidy = both.mul(bn(150)).div(bn(1000))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
       const expectedRef = {
-        4: new BN(0),
-        3: both.div(new BN(40)),
+        4: bn(0),
+        3: both.div(bn(40)),
       }
 
       for (const i of [4, 3]) {
@@ -1204,7 +1205,7 @@ contract("bank", accounts => {
         const ref = after.sub(before[i])
         expect(ref).is.bignumber
           .at.most(expectedRef[i], `harvest referral earn ${i} at most`)
-          .at.least(expectedRef[i].mul(new BN(999)).div(new BN(1000)), `harvest referral earn ${i} at least`)
+          .at.least(expectedRef[i].mul(bn(999)).div(bn(1000)), `harvest referral earn ${i} at least`)
       }
   
       await snapshot.revert(ss)
@@ -1229,24 +1230,24 @@ contract("bank", accounts => {
 
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
-      const expectedSubsidy = value.div(new BN(9))
+      const expectedSubsidy = value.div(bn(9))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
       await time.increase(24*60*60)
 
       const tx1 = await inst.proxy.harvest(13456789, { from: accounts[6] })
       const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
-      const expectedSubsidy1 = value1.div(new BN(9))
+      const expectedSubsidy1 = value1.div(bn(9))
       expect(subsidy1).is.bignumber
         .at.most(expectedSubsidy1, "harvest subsidy rate 1 at most")
-        .at.least(expectedSubsidy1.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate 1 at least")
+        .at.least(expectedSubsidy1.mul(bn(999)).div(bn(1000)), "harvest subsidy rate 1 at least")
 
-      const expectdValue1 = value.mul(new BN(66)).div(new BN(100))
+      const expectdValue1 = value.mul(bn(66)).div(bn(100))
       expect(value1).is.bignumber
-        .at.most(expectdValue1.mul(new BN(102)).div(new BN(100)), "harvest value by double the stake time at most")
-        .at.least(expectdValue1.mul(new BN(98)).div(new BN(100)), "harvest value by double the stake time at least")
+        .at.most(expectdValue1.mul(bn(102)).div(bn(100)), "harvest value by double the stake time at most")
+        .at.least(expectdValue1.mul(bn(98)).div(bn(100)), "harvest value by double the stake time at least")
 
       await snapshot.revert(ss)
     })
@@ -1273,24 +1274,24 @@ contract("bank", accounts => {
 
       const tx = await inst.proxy.harvest(0, { from: accounts[5] })
       const { value, subsidy } = tx.receipt.logs.find(l => l.event === 'Harvest').args
-      const expectedSubsidy = value.div(new BN(9))
+      const expectedSubsidy = value.div(bn(9))
       expect(subsidy).is.bignumber
         .at.most(expectedSubsidy, "harvest subsidy rate at most")
-        .at.least(expectedSubsidy.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate at least")
+        .at.least(expectedSubsidy.mul(bn(999)).div(bn(1000)), "harvest subsidy rate at least")
 
       await time.increase(24*60*60)
 
       const tx1 = await inst.proxy.harvest(13456789, { from: accounts[6] })
       const { value: value1, subsidy: subsidy1 } = tx1.receipt.logs.find(l => l.event === 'Harvest').args
-      const expectedSubsidy1 = value1.div(new BN(9))
+      const expectedSubsidy1 = value1.div(bn(9))
       expect(subsidy1).is.bignumber
         .at.most(expectedSubsidy1, "harvest subsidy rate 1 at most")
-        .at.least(expectedSubsidy1.mul(new BN(999)).div(new BN(1000)), "harvest subsidy rate 1 at least")
+        .at.least(expectedSubsidy1.mul(bn(999)).div(bn(1000)), "harvest subsidy rate 1 at least")
 
-      const expectdValue1 = value.mul(new BN(66)).div(new BN(100))
+      const expectdValue1 = value.mul(bn(66)).div(bn(100))
       expect(value1).is.bignumber
-        .at.most(expectdValue1.mul(new BN(102)).div(new BN(100)), "harvest value by double the stake time at most")
-        .at.least(expectdValue1.mul(new BN(98)).div(new BN(100)), "harvest value by double the stake time at least")
+        .at.most(expectdValue1.mul(bn(102)).div(bn(100)), "harvest value by double the stake time at most")
+        .at.least(expectdValue1.mul(bn(98)).div(bn(100)), "harvest value by double the stake time at least")
     })
   })
 
