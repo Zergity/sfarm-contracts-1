@@ -123,7 +123,6 @@ contract Bank is Upgradable, DataStructure {
 
         uint subsidyEarn = (totalEarn.mul(subsidyRate)/SUBSIDY_UNIT/totalValue).mul(scale);
         earn = bothEarn.sub(subsidyEarn);
-        emit Harvest(msg.sender, earn, subsidyEarn);
 
         address citizen = msg.sender;
         for (uint i = 0; i < refRates.length; ++i) {
@@ -146,6 +145,8 @@ contract Bank is Upgradable, DataStructure {
         }
 
         IERC20(earnToken).transfer(msg.sender, earn);
+
+        emit Harvest(msg.sender, bothEarn-subsidyEarn, subsidyEarn);
     }
 
     function farmerExec(address receivingToken, address router, bytes calldata input) external onlyFarmer {
