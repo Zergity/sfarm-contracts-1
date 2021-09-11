@@ -26,42 +26,39 @@ module.exports = async function(deployer, network, accounts) {
         { name: 'Bank' },
     ]
 
-    await Promise.all(
-        contracts.map(async contract => {
-            const { name } = contract
-            arts[name] = artifacts.require(name)
-            if (process.env[name]) {
-                inst[name] = await arts[name].at(process.env[name])
-            } else {
-                const ctorParams = contract.ctorParams || []
-                await deployer.deploy(arts[name], ...ctorParams)
-                inst[name] = await arts[name].deployed()
+    for (const contract of contracts) {
+        const { name } = contract
+        arts[name] = artifacts.require(name)
+
+        let data = '0x'
+
+        if (process.env[name]) {
+            inst[name] = await arts[name].at(process.env[name])
+            if (!process.env[`${name}_need_upgrade`]) {
+                continue
             }
-            return
-        })
-    )
+        } else {
+            const ctorParams = contract.ctorParams || []
+            await deployer.deploy(arts[name], ...ctorParams)
+            inst[name] = await arts[name].deployed()
+        }
 
-    const txs = await Promise.all([
-        inst.Proxy.upgradeContract(inst.Token.address, '0x'),
+        if (!process.env.Proxy) {   // first time deploy
+            switch(name) {
+                case 'Timelock':
+                    data = await inst.Timelock.setDelay.request(7*24*60*60)
+                    break
+                case 'Role':
+                    data = await inst.Role.setSubsidy.request(admin, decShift(0.1, 18))
+                    break
+            }
+        }
 
-        inst.Timelock.setDelay.request(7*24*60*60)
-            .then(({data}) => inst.Proxy.upgradeContract(inst.Timelock.address, data)),
+        if (name == 'Proxy') {
+            continue
+        }
 
-        inst.Role.setSubsidy.request(admin, decShift(0.1, 18))
-            .then(({data}) => inst.Proxy.upgradeContract(inst.Role.address, data)),
-
-        inst.Proxy.upgradeContract(inst.Bank.address, '0x'),
-    ])
-
-    // test upgrade
-    // await deployer.deploy(SFarm)
-    // const sfarm2 = await SFarm.deployed()
-    // txs.push(
-    //     await sfarm2.initialize.request(process.env.EARN_TOKEN, admin, decShift(0.1, 18))
-    //         .then(({data}) => proxy.upgradeContract(sfarm2.address, data)),
-    // )
-
-    txs.map(tx => {
+        const tx = await inst.Proxy.upgradeContract(inst[name].address, data)
         const { logs, rawLogs, logsBloom, ...receipt } = tx.receipt
         console.log('==============================================')
         console.log('receipt:', receipt)
@@ -73,5 +70,5 @@ module.exports = async function(deployer, network, accounts) {
             })
             return log
         }))
-    })
+    }
 }
