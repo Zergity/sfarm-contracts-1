@@ -20,14 +20,8 @@ library StakeLib {
     uint constant MAX_S = 2**192-1;
     uint constant MAX_T = 2**64-1;
 
-    function safeValue(Stake memory a) internal view returns (uint) {
-        if (a.t == MAX_T) {
-            return a.s;
-        }
-        if (block.timestamp <= a.t) {
-            return 0;
-        }
-        return block.timestamp.sub(a.t).mul(a.s);
+    function rawValue(Stake memory a) internal view returns (int) {
+        return a.t == MAX_T ? a.s : (int(block.timestamp) - int(a.t)) * int(a.s);
     }
 
     function value(Stake memory a) internal view returns (uint) {
@@ -44,7 +38,8 @@ library StakeLib {
         if (a.t == MAX_T) {
             // av = a.s
             s = amount;
-            t = block.timestamp.sub(a.s/amount);
+            // revert if too many un-harvested contribution here
+            t = block.timestamp.sub(a.s/amount, "too many unharvested");
             if (lock) {
                 t = t.add(STAKE_LOCK);
             }

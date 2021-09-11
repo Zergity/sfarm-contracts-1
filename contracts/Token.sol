@@ -33,7 +33,7 @@ import "./DataStructure.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract Token is Context, IERC20, Upgradable, DataStructure {
+contract Token is Context, Upgradable, DataStructure {
     using SafeMath for uint256;
     using Address for address;
 
@@ -43,58 +43,6 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
     uint constant FULL_ALLOWANCE = 0x8000000000000000000000000000000000000000000000000000000000000000;
 
     /**
-     * @dev Returns the name of the token.
-     *
-     * use Proxy's function instead
-     */
-    function name() public view override returns (string memory) {
-        revert("use Proxy's instead");
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     *
-     * use Proxy's function instead
-     */
-    function symbol() public view override returns (string memory) {
-        revert("use Proxy's instead");
-    }
-
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5,05` (`505 / 10 ** 2`).
-     *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
-     * called.
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
-     *
-     * use Proxy's function instead
-     */
-    function decimals() public view override returns (uint8) {
-        revert("use Proxy's instead");
-    }
-
-    /**
-     * @dev See {IERC20-totalSupply}.
-     */
-    function totalSupply() public view override returns (uint256) {
-        return _totalSupply();
-    }
-
-    /**
-     * @dev See {IERC20-balanceOf}.
-     */
-    function balanceOf(address account) public view override returns (uint256) {
-        return _balanceOf(account);
-    }
-
-    /**
      * @dev See {IERC20-transfer}.
      *
      * Requirements:
@@ -102,27 +50,8 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public returns (bool) {
         _transfer(_msgSender(), recipient, amount);
-        return true;
-    }
-
-    /**
-     * @dev See {IERC20-allowance}.
-     */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
-        return _allowances[owner][spender];
-    }
-
-    /**
-     * @dev See {IERC20-approve}.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        _approve(_msgSender(), spender, amount);
         return true;
     }
 
@@ -138,48 +67,12 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
         _transfer(sender, recipient, amount);
         uint _allowance = _allowances[sender][_msgSender()];
         if (_allowance != FULL_ALLOWANCE) {
             _approve(sender, _msgSender(), _allowance.sub(amount, "ERC20: transfer amount exceeds allowance"));
         }
-        return true;
-    }
-
-    /**
-     * @dev Atomically increases the allowance granted to `spender` by the caller.
-     *
-     * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     */
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
-        return true;
-    }
-
-    /**
-     * @dev Atomically decreases the allowance granted to `spender` by the caller.
-     *
-     * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     * - `spender` must have allowance for the caller of at least
-     * `subtractedValue`.
-     */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
         return true;
     }
 
@@ -197,7 +90,7 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      * - `recipient` cannot be the zero address.
      * - `sender` must have a balance of at least `amount`.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+    function _transfer(address sender, address recipient, uint256 amount) internal virtual whenNotPaused {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
         _burn(sender, amount);
@@ -228,14 +121,8 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
 
     // DO NOT EDIT: auto-generated function
     function funcSelectors() external view override returns (bytes4[] memory signs) {
-        signs = new bytes4[](8);
-        signs[0] = 0x18160ddd;		// totalSupply()
-        signs[1] = 0x70a08231;		// balanceOf(address)
-        signs[2] = 0xa9059cbb;		// transfer(address,uint256)
-        signs[3] = 0xdd62ed3e;		// allowance(address,address)
-        signs[4] = 0x095ea7b3;		// approve(address,uint256)
-        signs[5] = 0x23b872dd;		// transferFrom(address,address,uint256)
-        signs[6] = 0x39509351;		// increaseAllowance(address,uint256)
-        signs[7] = 0xa457c2d7;		// decreaseAllowance(address,uint256)
+        signs = new bytes4[](2);
+        signs[0] = 0xa9059cbb;		// transfer(address,uint256)
+        signs[1] = 0x23b872dd;		// transferFrom(address,address,uint256)
     }
 }
