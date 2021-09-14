@@ -59,6 +59,11 @@ module.exports = async function(deployer, network, accounts) {
         }
 
         const tx = await inst.Proxy.upgradeContract(inst[name].address, data)
+        printTx(tx)
+    }
+}
+
+function printTx(tx) {
         const { logs, rawLogs, logsBloom, ...receipt } = tx.receipt
         console.log('==============================================')
         console.log('receipt:', receipt)
@@ -71,4 +76,3 @@ module.exports = async function(deployer, network, accounts) {
             return log
         }))
     }
-}
