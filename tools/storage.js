@@ -21,6 +21,20 @@ const lockedSeconds = async (bankAddress, address) => {
   return t - timestamp
 }
 
+async function isPaused (bankAddress) {
+  const slot = 16 // refContract | _paused
+  const _paused = await provider.getStorageAt(bankAddress, slot)
+  return !_paused.endsWith('00')
+}
+
+async function getRefStakes(bankAddress) {
+  const refStakes = await Promise.all([
+    provider.getStorageAt(bankAddress, 18),
+    provider.getStorageAt(bankAddress, 19),
+  ])
+  return refStakes.map(a => ethers.BigNumber.from(a))
+}
+
 module.exports = async function(callback) {
   const dotenv = require('dotenv')
   dotenv.config()

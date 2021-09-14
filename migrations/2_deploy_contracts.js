@@ -26,6 +26,17 @@ module.exports = async function(deployer, network, accounts) {
         { name: 'Bank' },
     ]
 
+    if (process.env.Citizen) {
+        try {
+            const proxy = await artifacts.require('Role').at(process.env.Proxy)
+            const tx = await proxy.setReferralContract(process.env.Citizen)
+            printTx(tx)
+        } catch (err) {
+            console.error(err)
+        }
+        return
+    }
+
     for (const contract of contracts) {
         const { name } = contract
         arts[name] = artifacts.require(name)
@@ -59,6 +70,11 @@ module.exports = async function(deployer, network, accounts) {
         }
 
         const tx = await inst.Proxy.upgradeContract(inst[name].address, data)
+        printTx(tx)
+    }
+}
+
+function printTx(tx) {
         const { logs, rawLogs, logsBloom, ...receipt } = tx.receipt
         console.log('==============================================')
         console.log('receipt:', receipt)
@@ -71,4 +87,3 @@ module.exports = async function(deployer, network, accounts) {
             return log
         }))
     }
-}
