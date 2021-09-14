@@ -1,12 +1,13 @@
-const moment = require('moment');
 const { expect } = require('chai');
 const { ethers } = require('ethers');
-const { time, expectRevert, expectEvent, BN } = require('@openzeppelin/test-helpers');
+const { time, expectRevert, BN } = require('@openzeppelin/test-helpers');
 const bn = (n) => new BN(n)
 const snapshot = require('./lib/snapshot');
 const { strip0x } = require('./lib/utils');
 const { decShift } = require('../tools/lib/big');
+
 require('./lib/seedrandom');
+Math.seedrandom('any string you like');
 
 const TIME_TOLLERANCE = 2;
 
@@ -59,7 +60,6 @@ let inst = {
   pair: {},
   earnPair: {},
 };
-Math.seedrandom('any string you like');
 
 contract("bank", accounts => {	
   const farmer = accounts[2]
