@@ -115,9 +115,25 @@ contract Role is Upgradable, DataStructure {
         }
     }
 
+    function pause(bool enable) public onlyAdmin {
+        require(_paused != enable, "Pausable: unchanged");
+        _paused = enable;
+        emit Paused(enable, msg.sender);
+    }
+
+    function setReferralContract(address adr) public onlyAdmin {
+        require(refContract != adr, "ReferralContract: unchanged");
+        refContract = adr;
+    }
+
+    function setReferralLevels(uint32[2] calldata rates, uint[2] calldata stakes) external timelocked {
+        refRates = rates;
+        refStakes = stakes;
+    }
+
     // DO NOT EDIT: auto-generated function
     function funcSelectors() external view override returns (bytes4[] memory signs) {
-        signs = new bytes4[](8);
+        signs = new bytes4[](11);
         signs[0] = 0x9999d616;		// setSubsidy(address,uint256)
         signs[1] = 0x84fee3e2;		// ignoreAddress(address[],bool)
         signs[2] = 0x95d739cd;		// allow(address[],address[],uint256)
@@ -126,5 +142,8 @@ contract Role is Upgradable, DataStructure {
         signs[5] = 0x222da3cf;		// authorizeRouters(bytes32[])
         signs[6] = 0xd3af0792;		// authorizeTokens(bytes32[])
         signs[7] = 0x76f95301;		// authorizeWithdrawalFuncs(bytes32[])
+        signs[8] = 0x02329a29;		// pause(bool)
+        signs[9] = 0x06ad5a47;		// setReferralContract(address)
+        signs[10] = 0x9953b158;		// setReferralLevels(uint32[2],uint256[2])
     }
 }

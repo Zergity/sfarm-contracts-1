@@ -14,7 +14,7 @@
     "generate": "node tools/generateFuncSelectors.js Bank Role Token Timelock",
     "deploy": "truffle migrate --reset --network ${NODE_ENV:-local}",
     "parser": "babel-eslint",
-    "ganache": "fuser -k -n tcp 8545; ganache-cli --account=$npm_package_acc0 --account=$npm_package_acc1 --account=$npm_package_acc2 --account=$npm_package_acc3 --account=$npm_package_acc4 --account=$npm_package_acc5 --account=$npm_package_acc6 --quiet > /dev/null 2>&1 &",
+    "ganache": "fuser -k -n tcp 8545; ganache-cli --account=$npm_package_acc0 --account=$npm_package_acc1 --account=$npm_package_acc2 --account=$npm_package_acc3 --account=$npm_package_acc4 --account=$npm_package_acc5 --account=$npm_package_acc6 >| ./ganache.log 2>&1 &",
     "copy-test-contracts": "cp -ruv test/contracts/*.json build/contracts/",
     "texec": "truffle exec --network ${NODE_ENV:-local}",
     "test": "truffle test --bail --network ${NODE_ENV:-local}",
@@ -29,11 +29,11 @@
   "dependencies": {
     "@openzeppelin/contracts": "^3.1.0",
     "dotenv": "^10.0.0",
-    "ethers": "^5.1.4",
-    "truffle": "^5.1.31",
-    "truffle-privatekey-provider": "1.3.0",
+    "ethers": "^5.4.6",
+    "truffle": "^5.4.10",
+    "truffle-privatekey-provider": "^1.5.0",
     "tslint": "^5.11.0",
-    "web3": "1.0.0-beta.36",
+    "web3": "^1.5.2",
     "yargs": "^16.1.1"
   },
   "devDependencies": {
