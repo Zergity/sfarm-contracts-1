@@ -8,7 +8,6 @@ pragma experimental ABIEncoderV2;
 // solium-disable security/no-inline-assembly
 
 import "./DataStructure.sol";
-import './interfaces/IUniswapV2Router01.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/Upgradable.sol';
 import './interfaces/ICitizen.sol';
