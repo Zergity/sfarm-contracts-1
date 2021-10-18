@@ -124,7 +124,7 @@ contract Bank is Upgradable, DataStructure {
         earn = bothEarn.sub(subsidyEarn);
 
         address citizen = msg.sender;
-        for (uint i = 0; i < refRates.length; ++i) {
+        for (uint i = 0; i < REF_COUNT; ++i) {
             uint refEarn = (totalEarn.mul(refRates[i])/REF_RATE_UNIT/totalValue).mul(scale);
             if (refEarn == 0) {
                 continue;
@@ -224,7 +224,7 @@ contract Bank is Upgradable, DataStructure {
         uint subsidyRate_,
         address subsidyRecipient_,
         uint stakeTokensCount_,
-        uint32[2] memory refRates_
+        uint32[REF_COUNT] memory refRates_
     ) {
         return (
             delay,
