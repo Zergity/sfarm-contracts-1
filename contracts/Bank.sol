@@ -26,7 +26,7 @@ contract Bank is Upgradable, DataStructure {
         require(authorizedFarmers[msg.sender], "unauthorized farmer"); _;
     }
 
-    function referAndDeposit(address referrer, address token, uint amount) public {
+    function referAndDeposit(address referrer, address token, uint amount) external {
         ICitizen(refContract).setReferrer(msg.sender, referrer);
         if (amount > 0) {
             deposit(token, amount);
@@ -104,7 +104,7 @@ contract Bank is Upgradable, DataStructure {
     }
 
     // harvest ZD
-    function harvest(uint scale) public whenNotPaused returns (uint earn) {
+    function harvest(uint scale) external whenNotPaused returns (uint earn) {
         Stake memory stake = stakes[msg.sender];
         uint value = stake.value();
         uint totalValue = total.value();
@@ -204,7 +204,7 @@ contract Bank is Upgradable, DataStructure {
         require(total.stake() <= totalBalance, "over proccessed");
     }
 
-    function query(address a) public view returns (
+    function query(address a) external view returns (
         uint stake,
         int contribution,
         uint totalStake,
@@ -218,7 +218,7 @@ contract Bank is Upgradable, DataStructure {
         );
     }
 
-    function queryConfig() public view returns (
+    function queryConfig() external view returns (
         uint delay_,
         address earnToken_,
         uint subsidyRate_,

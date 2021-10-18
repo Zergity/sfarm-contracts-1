@@ -19,7 +19,7 @@ contract Role is Upgradable, DataStructure {
         _;
     }
 
-    function setSubsidy(address recipient, uint rate) public timelocked {
+    function setSubsidy(address recipient, uint rate) external timelocked {
         require(rate < SUBSIDY_UNIT, "subsidyRate overflow");
         subsidyRate = uint64(rate);
         if (recipient != address(0x0)) {
@@ -115,13 +115,13 @@ contract Role is Upgradable, DataStructure {
         }
     }
 
-    function pause(bool enable) public onlyAdmin {
+    function pause(bool enable) external onlyAdmin {
         require(_paused != enable, "Pausable: unchanged");
         _paused = enable;
         emit Paused(enable, msg.sender);
     }
 
-    function setReferralContract(address adr) public onlyAdmin {
+    function setReferralContract(address adr) external onlyAdmin {
         require(refContract != adr, "ReferralContract: unchanged");
         refContract = adr;
     }

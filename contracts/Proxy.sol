@@ -123,7 +123,7 @@ contract Proxy is DataStructure {
     /**
      * @dev Returns the name of the token.
      */
-    function name() public pure returns (string memory) {
+    function name() external pure returns (string memory) {
         return "LaunchZone USD";
     }
 
@@ -131,7 +131,7 @@ contract Proxy is DataStructure {
      * @dev Returns the symbol of the token, usually a shorter version of the
      * name.
      */
-    function symbol() public pure returns (string memory) {
+    function symbol() external pure returns (string memory) {
         return "USDZ";
     }
 
@@ -148,7 +148,7 @@ contract Proxy is DataStructure {
      * no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
-    function decimals() public pure returns (uint8) {
+    function decimals() external pure returns (uint8) {
         return 18;
     }
 }

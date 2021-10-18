@@ -11,7 +11,7 @@ contract Timelock is Upgradable, DataStructure {
     uint constant MINIMUM_DELAY = 2 days;
     uint constant MAXIMUM_DELAY = 30 days;
 
-    function setDelay(uint delay_) public onlyAdmin {
+    function setDelay(uint delay_) external onlyAdmin {
         require(delay_ >= MINIMUM_DELAY, "Timelock::setDelay: Delay must exceed minimum delay.");
         require(delay_ <= MAXIMUM_DELAY, "Timelock::setDelay: Delay must not exceed maximum delay.");
         delay = delay_;
@@ -19,7 +19,7 @@ contract Timelock is Upgradable, DataStructure {
         emit NewDelay(delay);
     }
 
-    function queueTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public onlyAdmin returns (bytes32) {
+    function queueTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external onlyAdmin returns (bytes32) {
         require(eta >= getBlockTimestamp().add(delay), "Timelock::queueTransaction: Estimated execution block must satisfy delay.");
 
         bytes32 txHash = keccak256(abi.encode(target, value, signature, data, eta));
@@ -29,14 +29,14 @@ contract Timelock is Upgradable, DataStructure {
         return txHash;
     }
 
-    function cancelTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public onlyAdmin {
+    function cancelTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external onlyAdmin {
         bytes32 txHash = keccak256(abi.encode(target, value, signature, data, eta));
         queuedTransactions[txHash] = false;
 
         emit CancelTransaction(txHash, target, value, signature, data, eta);
     }
 
-    function executeTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public payable  onlyAdmin {
+    function executeTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external payable  onlyAdmin {
         bytes32 txHash = keccak256(abi.encode(target, value, signature, data, eta));
         require(queuedTransactions[txHash], "Timelock::executeTransaction: Transaction hasn't been queued.");
         require(getBlockTimestamp() >= eta, "Timelock::executeTransaction: Transaction hasn't surpassed time lock.");
