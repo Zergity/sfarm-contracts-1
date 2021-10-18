@@ -42,7 +42,11 @@ contract Role is Upgradable, DataStructure {
         }
     }
 
-    function allow(address[] calldata tokens, address[] calldata routers, uint amount) external timelocked {
+    function allow(
+        address[] calldata tokens,
+        address[] calldata routers,
+        uint amount
+    ) external timelocked {
         for (uint j = 0; j < routers.length; ++j) {
             address router = routers[j];
             require(authorizedRouters[router] > 0, "unauthorized router");
@@ -109,7 +113,10 @@ contract Role is Upgradable, DataStructure {
             require(router != address(this), "nice try");
             bytes4 func = bytes4(bytes12(uint96(uint(changes[i]))));
             uint mask = uint(changes[i]) & ROUTER_MASK;
-            require(authorizedWithdrawalFunc[router][func] != mask, "authorization mask unchanged");
+            require(
+                authorizedWithdrawalFunc[router][func] != mask,
+                "authorization mask unchanged"
+            );
             authorizedWithdrawalFunc[router][func] = mask;
             emit AuthorizeWithdrawalFunc(router, func, mask);
         }
@@ -126,7 +133,10 @@ contract Role is Upgradable, DataStructure {
         refContract = adr;
     }
 
-    function setReferralLevels(uint32[2] calldata rates, uint[2] calldata stakes) external timelocked {
+    function setReferralLevels(
+        uint32[2] calldata rates,
+        uint[2] calldata stakes
+    ) external timelocked {
         refRates = rates;
         refStakes = stakes;
     }

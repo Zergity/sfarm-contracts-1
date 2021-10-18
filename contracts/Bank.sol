@@ -73,7 +73,10 @@ contract Bank is Upgradable, DataStructure {
                 uint mask = authorizedWithdrawalFunc[router][_funcSign(rls[i].execs[j].input)];
                 require(_isRouterForFarmToken(mask), "unauthorized router.function");
                 if (receivingToken == address(0x0)) {
-                    require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");
+                    require(
+                        _isRouterPreserveOwnership(mask),
+                        "router not authorized as ownership preserved"
+                    );
                 }
 
                 (bool success,) = router.call(rls[i].execs[j].input);
@@ -95,7 +98,11 @@ contract Bank is Upgradable, DataStructure {
         for (uint i = 0; i < rls.length; ++i) {
             address receivingToken = rls[i].receivingToken;
             if (receivingToken != address(0x0)) {
-                require(IERC20(receivingToken).balanceOf(address(this)) <= lastBalance[i] / LEFT_OVER_RATE, "too many token leftover");
+                require(
+                    IERC20(receivingToken).balanceOf(address(this)) <=
+                        lastBalance[i] / LEFT_OVER_RATE,
+                    "too many token leftover"
+                );
             }
         }
 
@@ -132,7 +139,10 @@ contract Bank is Upgradable, DataStructure {
             earn = earn.sub(refEarn);
 
             citizen = ICitizen(refContract).getReferrer(citizen);
-            if (citizen == address(0x0) || citizen == subsidyRecipient || stakes[citizen].stake() < refStakes[i]) {
+            if (citizen == address(0x0) ||
+                citizen == subsidyRecipient ||
+                stakes[citizen].stake() < refStakes[i]
+            ) {
                 subsidyEarn = subsidyEarn.add(refEarn);
             } else {
                 IERC20(earnToken).transfer(citizen, refEarn);
@@ -148,15 +158,23 @@ contract Bank is Upgradable, DataStructure {
         emit Harvest(msg.sender, bothEarn-subsidyEarn, subsidyEarn);
     }
 
-    function farmerExec(address receivingToken, address router, bytes calldata input) external onlyFarmer {
+    function farmerExec(
+        address receivingToken,
+        address router,
+        bytes calldata input
+    ) external onlyFarmer {
         uint mask = authorizedRouters[router];
         require(_isRouterForFarmToken(mask), "unauthorized router");
 
         emit FarmerExec(receivingToken, router, _funcSign(input));
 
-        // skip the balance check for router that always use msg.sender instead of `recipient` field (unlike Uniswap)
+        // skip the balance check for router that always use `msg.sender`
+        // instead of `recipient` field (unlike Uniswap)
         if (receivingToken == address(0x0)) {
-            require(_isRouterPreserveOwnership(mask), "router not authorized as ownership preserved");
+            require(
+                _isRouterPreserveOwnership(mask),
+                "router not authorized as ownership preserved"
+            );
             (bool success,) = router.call(input);
             return _forwardCallResult(success);
         }
@@ -169,10 +187,14 @@ contract Bank is Upgradable, DataStructure {
             return _forwardCallResult(success);
         }
 
-        require(IERC20(receivingToken).balanceOf(address(this)) > balanceBefore, "token balance unchanged");
+        require(
+            IERC20(receivingToken).balanceOf(address(this)) > balanceBefore,
+            "token balance unchanged"
+        );
     }
 
-    // this function allow farmer to convert token fee earn from LP in the authorizedTokens
+    // this function allow farmer to convert token fee earn from LP in
+    // the authorizedTokens
     function farmerProcessOutstandingToken(
         address             router,           // LP router to swap token to earnToken
         bytes     calldata  input,
@@ -190,7 +212,10 @@ contract Bank is Upgradable, DataStructure {
             return _forwardCallResult(success);
         }
 
-        require(IERC20(earnToken).balanceOf(address(this)) > lastBalance, "earn token balance unchanged");
+        require(
+            IERC20(earnToken).balanceOf(address(this)) > lastBalance,
+            "earn token balance unchanged"
+        );
 
         // verify the remaining stake is sufficient
         uint totalBalance;

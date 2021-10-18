@@ -13,19 +13,41 @@ import "./lib/StakeLib.sol";
  */
 contract DataStructure {
     // Upgradable Contract Proxy //
-    mapping(bytes4 => address) impls;   // function signature => implementation contract address
+    // function signature => implementation contract address
+    mapping(bytes4 => address) impls;
 
     // TimeLock
     uint public delay;
     mapping (bytes32 => bool) public queuedTransactions;
 
-    // admin operations require no locktime when the total stake in the farm not more than this value
+    // admin operations require no locktime when the total stake in the
+    // farm no more this value
     uint constant LOCK_FREE_STAKE = 10000 * 10**18;
 
     event NewDelay(uint indexed newDelay);
-    event CancelTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature,  bytes data, uint eta);
-    event ExecuteTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature,  bytes data, uint eta);
-    event QueueTransaction(bytes32 indexed txHash, address indexed target, uint value, string signature, bytes data, uint eta);
+    event CancelTransaction(
+        bytes32 indexed txHash,
+        address indexed target,
+        uint value,
+        string signature,
+        bytes data, uint eta
+    );
+    event ExecuteTransaction(
+        bytes32 indexed txHash,
+        address indexed target,
+        uint value,
+        string signature,
+        bytes data,
+        uint eta
+    );
+    event QueueTransaction(
+        bytes32 indexed txHash,
+        address indexed target,
+        uint value,
+        string signature,
+        bytes data,
+        uint eta
+    );
 
     // Token
     mapping (address => mapping (address => uint256)) _allowances;
@@ -44,27 +66,37 @@ contract DataStructure {
     event NewSubsidy(address recipient, uint rate);
 
     // Roles and Configs
-    uint stakeTokensCount;  // number of authorizedTokens with TOKEN_LEVEL_STAKE
+    // number of authorizedTokens with TOKEN_LEVEL_STAKE
+    uint stakeTokensCount;
 
     mapping(address => bool)                    authorizedAdmins;
     mapping(address => bool)                    authorizedFarmers;
 
-    mapping(address => uint)                    authorizedTokens;   // 1: receiving token, 2: staked token
-    mapping(address => uint)                    authorizedRouters;  // 1: earn token, 2: staked token
+    // 1: receiving token, 2: staked token
+    mapping(address => uint)                    authorizedTokens;
+    // 1: earn token, 2: staked token
+    mapping(address => uint)                    authorizedRouters;
     mapping(address => mapping(bytes4 => uint)) authorizedWithdrawalFunc;
 
     uint constant TOKEN_LEVEL_RECEIVABLE    = 1;
     uint constant TOKEN_LEVEL_STAKE         = 2;
 
-    uint constant ROUTER_EARN_TOKEN             = 1 << 0;   // for earn token only
-    uint constant ROUTER_FARM_TOKEN             = 1 << 1;   // for stake and intermediate tokens (LP, etc.)
-    uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;   // router that always use msg.sender as recipient
+    // for earn token only
+    uint constant ROUTER_EARN_TOKEN             = 1 << 0;
+    // for stake and intermediate tokens (LP, etc.)
+    uint constant ROUTER_FARM_TOKEN             = 1 << 1;
+    // router that always use msg.sender as recipient
+    uint constant ROUTER_OWNERSHIP_PRESERVED    = 1 << 2;
 
     event AuthorizeAdmin(address indexed admin, bool enable);
     event AuthorizeFarmer(address indexed farmer, bool enable);
     event AuthorizeToken(address indexed token, uint level);
     event AuthorizeRouter(address indexed router, uint mask);
-    event AuthorizeWithdrawalFunc(address indexed router, bytes4 indexed func, uint mask);
+    event AuthorizeWithdrawalFunc(
+        address indexed router,
+        bytes4 indexed func,
+        uint mask
+    );
 
     event FarmerExec(address indexed receivingToken, address indexed router, bytes4 indexed func);
     event ProcessOutstandingToken(address indexed router, bytes4 indexed func);
@@ -80,7 +112,7 @@ contract DataStructure {
 
     // Supply
     uint                        ignoredSupply;
-    mapping (address => bool)   ignoredAddresses;   // set of addresses to be ignored from total supply
+    mapping(address => bool)    ignoredAddresses;   // ignored from total supply
     event AddressIngored(address account, bool ignored);
 
     // Pausable
@@ -95,7 +127,8 @@ contract DataStructure {
     uint[REF_COUNT]     refStakes;
 
     /**
-     * @dev Modifier to make a function callable only when the contract is not paused.
+     * @dev Modifier to make a function callable only when the contract
+     * is not paused.
      *
      * Requirements:
      *
@@ -135,7 +168,8 @@ contract DataStructure {
         return total.stake() - ignoredSupply;
     }
 
-    // forward the last call result to the caller, including revert reason
+    // forward the last call result to the caller, including revert
+    // reason
     function _forwardCallResult(bool success) internal pure {
         assembly {
             let size := returndatasize()

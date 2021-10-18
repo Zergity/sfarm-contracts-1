@@ -40,7 +40,8 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
     /**
      * @dev setting allowance to this value to skip an SSTORE in transferFrom
      */
-    uint constant FULL_ALLOWANCE = 0x8000000000000000000000000000000000000000000000000000000000000000;
+    uint constant FULL_ALLOWANCE =
+        0x8000000000000000000000000000000000000000000000000000000000000000;
 
     /**
      * @dev Returns the name of the token.
@@ -110,7 +111,10 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
     /**
      * @dev See {IERC20-allowance}.
      */
-    function allowance(address owner, address spender) external view virtual override returns (uint256) {
+    function allowance(
+        address owner,
+        address spender
+    ) external view virtual override returns (uint256) {
         return _allowances[owner][spender];
     }
 
@@ -138,11 +142,19 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) external virtual override returns (bool) {
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external virtual override returns (bool) {
         _transfer(sender, recipient, amount);
         uint _allowance = _allowances[sender][_msgSender()];
         if (_allowance != FULL_ALLOWANCE) {
-            _approve(sender, _msgSender(), _allowance.sub(amount, "ERC20: transfer amount exceeds allowance"));
+            _approve(
+                sender,
+                _msgSender(),
+                _allowance.sub(amount, "ERC20: transfer amount exceeds allowance")
+            );
         }
         return true;
     }
@@ -159,7 +171,10 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      *
      * - `spender` cannot be the zero address.
      */
-    function increaseAllowance(address spender, uint256 addedValue) external virtual returns (bool) {
+    function increaseAllowance(
+        address spender,
+        uint256 addedValue
+    ) external virtual returns (bool) {
         _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
         return true;
     }
@@ -178,8 +193,18 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      * - `spender` must have allowance for the caller of at least
      * `subtractedValue`.
      */
-    function decreaseAllowance(address spender, uint256 subtractedValue) external virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+    function decreaseAllowance(
+        address spender,
+        uint256 subtractedValue
+    ) external virtual returns (bool) {
+        _approve(
+            _msgSender(),
+            spender,
+            _allowances[_msgSender()][spender].sub(
+                subtractedValue,
+                "ERC20: decreased allowance below zero"
+            )
+        );
         return true;
     }
 
@@ -197,7 +222,11 @@ contract Token is Context, IERC20, Upgradable, DataStructure {
      * - `recipient` cannot be the zero address.
      * - `sender` must have a balance of at least `amount`.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal virtual whenNotPaused {
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal virtual whenNotPaused {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
         _burn(sender, amount);

@@ -53,7 +53,8 @@ library StakeLib {
                 t = block.timestamp.add(av/s);
             }
             if (lock) {
-                // this could shift to a future time, which require the lock before stake can be withdraw again
+                // this could shift to a future time, which require the lock before stake can be
+                // withdraw again
                 t = t.add(STAKE_LOCK.mul(amount)/s);
             }
         }

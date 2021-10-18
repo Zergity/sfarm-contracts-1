@@ -12,7 +12,8 @@ import "./interfaces/Upgradable.sol";
 /**
  * Proxy is an ERC20 and an Upgradable Proxy
  *
- * @dev proxy class can't have any (structured) state variable, all state is located in DataStructure and Token
+ * @dev proxy class can't have any (structured) state variable,
+ * all state is located in DataStructure and Token
  */
 contract Proxy is DataStructure {
     event Deployed(address indexed addr, bytes initCode, bytes4[] funcs);
