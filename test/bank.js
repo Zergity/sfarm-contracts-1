@@ -172,7 +172,6 @@ contract("bank", accounts => {
     })
 
     it("authorize tokens for receiving", async() => {
-      // TODO: expectRevert
       const pairs = []
       for(const i of Object.keys(inst.pair)) {
         for (const j of Object.keys(inst.pair[i])) {
@@ -728,10 +727,6 @@ contract("bank", accounts => {
         ), { from: farmer },
       )
     })
-
-    // TODO: add pancake farming service
-
-    // stake the LP
   })
 
   describe('withdraw', () => {
@@ -1171,7 +1166,7 @@ contract("bank", accounts => {
         { from: admin })
 
       await inst.coin[1].mint(accounts[3], decShift(20, 18))
-      // TODO: move this "too many unharvested" test out
+      // NOTE: move this "too many unharvested" test out
       await expectRevert(inst.proxy.deposit(inst.coin[1].address, decShift(20, 18), { from: accounts[3] }), "too many unharvested")
       await inst.proxy.harvest(0, { from: accounts[3] })
       await inst.proxy.deposit(inst.coin[1].address, decShift(20, 18), { from: accounts[3] })

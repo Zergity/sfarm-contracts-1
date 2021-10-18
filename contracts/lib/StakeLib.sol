@@ -83,7 +83,7 @@ library StakeLib {
         } else {
             uint av = block.timestamp.sub(a.t).mul(a.s);
             uint t = block.timestamp.sub(av.sub(amount)/a.s);
-            // TODO: assert(t <= MAX_T)
+            // DEV: assert(t <= MAX_T)
             a.t = uint64(t);
         }
         return a;

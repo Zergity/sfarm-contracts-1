@@ -39,7 +39,7 @@ library CapMath {
             return y / b;
         }
 
-        // TODO: binary search
+        // NOTE: this could be improved using a binary search
         uint shifted;
         do {
             x >>= 1;

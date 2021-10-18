@@ -30,7 +30,7 @@ function _bitLength(a) {
     return a.toString(2).length
 }
 
-// TODO: optimize this using bit shift
+// NOTE: optimize this using bit shift
 function _bitLengthDiff(a, b) {
     return _bitLength(a) - _bitLength(b);
 }
