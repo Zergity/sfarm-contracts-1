@@ -15,9 +15,6 @@ import './interfaces/ICitizen.sol';
 contract Bank is Upgradable, DataStructure {
     using SafeMath for uint;
 
-    // accept 1/LEFT_OVER_RATE token left over
-    uint constant LEFT_OVER_RATE = 100;
-
     modifier onlyStakeToken(address token) {
         require(_isTokenStakable(token), "unauthorized token"); _;
     }
@@ -93,18 +90,6 @@ contract Bank is Upgradable, DataStructure {
         }
 
         IERC20(token).transfer(msg.sender, amount);
-
-        // accept 1% token left over
-        for (uint i = 0; i < rls.length; ++i) {
-            address receivingToken = rls[i].receivingToken;
-            if (receivingToken != address(0x0)) {
-                require(
-                    IERC20(receivingToken).balanceOf(address(this)) <=
-                        lastBalance[i] / LEFT_OVER_RATE,
-                    "too many token leftover"
-                );
-            }
-        }
 
         emit Transfer(msg.sender, address(0), amount);
         emit Withdraw(msg.sender, token, amount);
