@@ -57,10 +57,11 @@ module.exports = async function(deployer, network, accounts) {
         if (!process.env.Proxy) {   // first time deploy
             switch(name) {
                 case 'Timelock':
-                    data = await inst.Timelock.setDelay.request(7*24*60*60)
+                    data = (await inst.Timelock.setDelay.request(7*24*60*60)).data
+                    console.log(data)
                     break
                 case 'Role':
-                    data = await inst.Role.setSubsidy.request(admin, decShift(0.1, 18))
+                    data = (await inst.Role.setSubsidy.request(admin, decShift(0.1, 18))).data
                     break
             }
         }
