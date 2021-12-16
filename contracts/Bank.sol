@@ -234,7 +234,9 @@ contract Bank is Upgradable, DataStructure {
         uint subsidyRate_,
         address subsidyRecipient_,
         uint stakeTokensCount_,
-        uint32[REF_COUNT] memory refRates_
+        bool paused_,
+        uint32[REF_COUNT] memory refRates_,
+        uint[REF_COUNT] memory refStakes_
     ) {
         return (
             delay,
@@ -242,7 +244,9 @@ contract Bank is Upgradable, DataStructure {
             uint(subsidyRate),
             subsidyRecipient,
             stakeTokensCount,
-            refRates
+            _paused,
+            refRates,
+            refStakes
         );
     }
 
